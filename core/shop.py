@@ -97,6 +97,55 @@ CATALOG = [
      "blurb": "tucked behind one ear",
      "says": "*extremely pleased with self*"},
 
+    # --- milestone unlocks (#29): earned by accumulation, never bought.
+    # They live in the catalogue so they render, equip and land in the
+    # scrapbook like anything else -- `milestone: True` keeps them out of
+    # the shelf, and can_buy refuses them at any price. A kid who owns the
+    # whole shop still has these ahead of them, which is the point of
+    # having two currencies at all.
+    {"id": "milestone_ribbon", "kind": KIND_ACCESSORY, "name": "Paper ribbon",
+     "price": 0, "milestone": True, "blurb": "for your first five hundred words",
+     "says": "I remember when you couldn't do this."},
+    {"id": "golden_collar", "kind": KIND_ACCESSORY, "name": "Golden collar",
+     "price": 0, "milestone": True, "blurb": "not for sale, at any price",
+     "says": "You typed every single one of these words."},
+    {"id": "silver_bell", "kind": KIND_ACCESSORY, "name": "Silver bell",
+     "price": 0, "milestone": True, "blurb": "ten thousand words of jingling",
+     "says": "*jingle*"},
+    {"id": "comet_charm", "kind": KIND_ACCESSORY, "name": "Comet charm",
+     "price": 0, "milestone": True, "blurb": "fifty thousand words",
+     "says": "We have come a very long way."},
+    {"id": "milestone_tag", "kind": KIND_ACCESSORY, "name": "Name tag",
+     "price": 0, "milestone": True, "blurb": "a week of turning up",
+     "says": "It has my name on it!"},
+    {"id": "first_key_charm", "kind": KIND_ACCESSORY, "name": "Key charm",
+     "price": 0, "milestone": True, "blurb": "your first mastered letter",
+     "says": "The very first one."},
+    {"id": "half_alphabet_pin", "kind": KIND_ACCESSORY, "name": "Half pin",
+     "price": 0, "milestone": True, "blurb": "thirteen letters mastered",
+     "says": "Halfway across the keyboard."},
+    {"id": "star_charm", "kind": KIND_ACCESSORY, "name": "Star charm",
+     "price": 0, "milestone": True, "blurb": "every letter mastered",
+     "says": "Every single key. All of them."},
+    {"id": "album_clip", "kind": KIND_ACCESSORY, "name": "Album clip",
+     "price": 0, "milestone": True, "blurb": "a quarter of the scrapbook",
+     "says": "Look how much we found."},
+    {"id": "velvet_cushion", "kind": KIND_DECOR, "name": "Velvet cushion",
+     "price": 0, "milestone": True, "blurb": "thirty days of showing up",
+     "says": "This is mine now. Forever."},
+    {"id": "sunbeam_mat", "kind": KIND_DECOR, "name": "Sunbeam mat",
+     "price": 0, "milestone": True, "blurb": "a hundred days",
+     "says": "The warmest spot in the house."},
+    {"id": "old_friend_blanket", "kind": KIND_DECOR, "name": "Old blanket",
+     "price": 0, "milestone": True, "blurb": "a whole year together",
+     "says": "It smells like us."},
+    {"id": "album_frame", "kind": KIND_DECOR, "name": "Album frame",
+     "price": 0, "milestone": True, "blurb": "half the scrapbook",
+     "says": "Worth putting on the wall."},
+    {"id": "album_crown", "kind": KIND_DECOR, "name": "Paper crown",
+     "price": 0, "milestone": True, "blurb": "the entire scrapbook",
+     "says": "You found everything. Everything!"},
+
     # --- treats: consumable buffers, chosen by the kid before a game
     {"id": "tuna_flake", "kind": KIND_TREAT, "name": "Tuna flake", "price": 18,
      "effect": EFFECT_SHIELD, "blurb": "a small, serious snack",
@@ -207,7 +256,8 @@ def _order_key(item_id, salt):
 
 
 def _rotatable():
-    return [i for i in CATALOG if not i.get("dream")]
+    return [i for i in CATALOG
+            if not i.get("dream") and not i.get("milestone")]
 
 
 def week_salt(today=None):
@@ -270,6 +320,11 @@ def can_buy(profile, item_id):
     item = BY_ID.get(item_id)
     if item is None:
         return False, "That's not for sale."
+    if item.get("milestone"):
+        # Unbuyable at any price. The whole value of a milestone item is
+        # that fish cannot reach it -- the moment one can be bought, the
+        # second progression bar collapses back into the first.
+        return False, "This one isn't for sale -- it gets earned."
     if owns(profile, item_id):
         return False, "You've already got that one."
     short = item["price"] - fish(profile)

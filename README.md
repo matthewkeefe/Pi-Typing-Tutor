@@ -236,6 +236,21 @@ Unfound items show as `? ? ?`. That says "there's more to find" and never "you
 missed it": nothing in the Scrapbook expires, and **nothing in it can ever be
 lost**. There is deliberately no code path that removes an entry.
 
+## Two progression bars
+
+Fish are spendable, so a kid who owns the shop has nothing left to earn. Milestones
+are the other half — cumulative totals that unlock things **fish cannot buy at any
+price**: 2,500 words earns a golden collar, thirty days a velvet cushion, every
+letter mastered a star charm.
+
+The difference in meaning matters. Fish are volume — show up, type, earn, and a bad
+day pays the same as a good one. Milestones are accumulation: not thresholds you
+clear by being good, but totals that only ever rise by continuing to turn up.
+
+Every track reads data the profile already kept, so a kid who has been playing for
+months gets full retroactive credit the first time it runs. Starting them at zero
+for a feature they never saw would be the opposite of the point.
+
 ## Progression and badges
 
 Every profile tracks day streaks, total words, best WPM, best accuracy, and per-mode
@@ -350,6 +365,7 @@ core/shop.py          item catalog, weekly rotation, fish economy, treat effects
 core/wordlist.py      shared word-list access: loading, filtering, bowl building
 core/ghosts.py        race recordings: shared tracks, splits, bounded storage
 core/scrapbook.py     collection albums: fish species, gifts, derived pages
+core/milestones.py    the unspendable progression bar: totals -> earned items
 modes/rocket.py       level-based ship builder
 modes/dino.py         endless letter chomper
 modes/platformer.py   accuracy-focused jumper (the cat is the jumper)

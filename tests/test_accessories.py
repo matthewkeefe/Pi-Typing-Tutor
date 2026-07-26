@@ -195,15 +195,30 @@ class TestWearing(unittest.TestCase):
         self.assertEqual(in_shop, set(cat.ACCESSORIES))
 
     def test_accessories_stay_lateral(self):
-        """Guard 3: different, never better. No tiers, no rarity."""
+        """
+        Guard 3: different, never better. No tiers, no rarity.
+
+        Price spread is checked across the *buyable* ones only. Milestone
+        accessories (#29) cost nothing because fish cannot reach them at
+        all -- that is a different axis, not a cheaper tier.
+        """
         prices = [i["price"] for i in shop.CATALOG
-                  if i["kind"] == shop.KIND_ACCESSORY]
+                  if i["kind"] == shop.KIND_ACCESSORY and not i.get("milestone")]
         self.assertLessEqual(max(prices) - min(prices), 20)
         for item in shop.CATALOG:
             if item["kind"] != shop.KIND_ACCESSORY:
                 continue
             for word in ("rare", "legendary", "epic", "tier", "exclusive"):
                 self.assertNotIn(word, item["blurb"].lower(), item["id"])
+
+    def test_earned_accessories_are_wearable(self):
+        """
+        An item that reaches the inventory but has no art is silently
+        unwearable -- the worst outcome for something earned over months.
+        """
+        for item in shop.CATALOG:
+            if item["kind"] == shop.KIND_ACCESSORY and item.get("milestone"):
+                self.assertIn(item["id"], cat.ACCESSORIES, item["id"])
 
     def test_inventory_migrates_on_old_saves(self):
         p = profiles.get_or_create({"Old": {"name": "Old"}}, "Old")

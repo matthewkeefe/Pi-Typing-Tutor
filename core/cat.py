@@ -545,6 +545,20 @@ ACCESSORIES = {
     "bow_tie": {"art": ">o<", "slot": "neck", "word": "a bow tie"},
     "sun_hat": {"art": "[_]", "slot": "head", "word": "a sun hat"},
     "daisy": {"art": ",*,", "slot": "head", "word": "a daisy behind the ear"},
+
+    # Earned by accumulation rather than bought (#29). They need art here
+    # like any other accessory: an item that lands in the inventory but
+    # has no entry in this table is silently unwearable, which is the
+    # worst possible outcome for something a kid spent a year earning.
+    "milestone_ribbon": {"art": "-8-", "slot": "neck", "word": "a paper ribbon"},
+    "golden_collar": {"art": "=o=", "slot": "neck", "word": "a golden collar"},
+    "silver_bell": {"art": "-Q-", "slot": "neck", "word": "a silver bell"},
+    "comet_charm": {"art": "~*~", "slot": "neck", "word": "a comet charm"},
+    "milestone_tag": {"art": "[i]", "slot": "neck", "word": "a name tag"},
+    "first_key_charm": {"art": "-+-", "slot": "neck", "word": "a key charm"},
+    "half_alphabet_pin": {"art": "-:-", "slot": "neck", "word": "a half pin"},
+    "star_charm": {"art": "-*-", "slot": "neck", "word": "a star charm"},
+    "album_clip": {"art": "-#-", "slot": "neck", "word": "an album clip"},
 }
 ACCESSORY_IDS = sorted(ACCESSORIES)
 

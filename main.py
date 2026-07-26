@@ -17,7 +17,7 @@ import sys
 from datetime import date
 
 from core import (profiles, badges, ui, lessons, adaptive, cat, engine, fx,
-                  shop, scrapbook)
+                  shop, scrapbook, milestones)
 from core.ui import (cp, center, safe_addstr, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_BADGE, C_DEFAULT)
 from modes import (rocket, dino, platformer, memorize, care, yarn, soup,
@@ -338,11 +338,22 @@ def show_stats(stdscr, profile):
     center(stdscr, 0, "%s's STATS" % profile["name"], cp(C_TITLE, True))
 
     mins = profile["total_seconds"] / 60.0
+
+    # Milestone tracks fold into the lines that already showed the same
+    # totals rather than repeating them underneath. Two "Words typed"
+    # rows on one screen is how a stats page starts becoming a wall.
+    track = {}
+    for label, current, threshold in milestones.summary(profile):
+        track[label] = ("%d" % current if threshold is None
+                        else "%d  (next at %d)" % (current, threshold))
+
     rows = [
         ("Day streak", "%d days (best %d)" % (profile["current_streak"], profile["longest_streak"])),
-        ("Days practiced", "%d" % profile["days_played"]),
+        ("Days shown up", track.get("Days shown up", "%d" % profile["days_played"])),
         ("Time typing", "%.0f minutes" % mins),
-        ("Words typed", "%d" % profile["total_words"]),
+        ("Words typed", track.get("Words typed", "%d" % profile["total_words"])),
+        ("Letters mastered", track.get("Letters mastered", "0")),
+        ("Scrapbook filled", track.get("Scrapbook filled", "0")),
         ("Best WPM", "%.1f" % profile["best_wpm"]),
         ("Best accuracy", "%.1f%%" % profile["best_accuracy"]),
         ("", ""),
@@ -378,26 +389,52 @@ def show_stats(stdscr, profile):
         ("Memorized", "%d passages" % profile["memorize_completions"]),
         ("Badges", "%d of %d" % (len(profile["badges"]), len(badges.BADGES))),
     ]
-    for i, (label, val) in enumerate(rows):
-        if not label:
-            continue
-        safe_addstr(stdscr, 3 + i, 6, "%-18s" % label, cp(C_PENDING))
-        safe_addstr(stdscr, 3 + i, 26, val, cp(C_WARN, True))
+    # The heatmap is the competence lever, so it stays pinned to the
+    # bottom on every page. Everything else pages above it: this screen
+    # has been over capacity since Phase 6 started adding modes, and the
+    # recent-runs column was quietly being drawn over.
+    key_top = max(6, h - 7)
+    room = max(3, key_top - 4)
+    pages = [rows[i:i + room] for i in range(0, len(rows), room)] or [[]]
+    page = 0
 
-    # last 10 sessions, so they can see the trend
-    hist = profile.get("history", [])[-10:]
-    if hist:
-        safe_addstr(stdscr, 3, 52, "Recent runs", cp(C_ACCENT, True))
-        for i, run in enumerate(hist):
-            safe_addstr(stdscr, 5 + i, 52,
-                        "%-10s %4.0f wpm %3.0f%%" % (run["mode"][:10], run["wpm"], run["accuracy"]),
-                        cp(C_CORRECT))
+    while True:
+        stdscr.erase()
+        center(stdscr, 0, "%s's STATS" % profile["name"], cp(C_TITLE, True))
+        if len(pages) > 1:
+            safe_addstr(stdscr, 1, max(30, w - 26),
+                        "page %d of %d" % (page + 1, len(pages)),
+                        cp(C_PENDING))
 
-    draw_keyboard(stdscr, min(h - 7, 16), profile)
+        for i, (label, val) in enumerate(pages[page]):
+            if not label:
+                continue
+            safe_addstr(stdscr, 3 + i, 6, "%-18s" % label, cp(C_PENDING))
+            safe_addstr(stdscr, 3 + i, 26, val, cp(C_WARN, True))
 
-    center(stdscr, h - 2, "press any key", cp(C_PENDING))
-    stdscr.refresh()
-    stdscr.getch()
+        # Recent runs share the first page's right-hand column.
+        hist = profile.get("history", [])[-min(10, room - 2):]
+        if hist and page == 0:
+            safe_addstr(stdscr, 3, 52, "Recent runs", cp(C_ACCENT, True))
+            for i, run in enumerate(hist):
+                safe_addstr(stdscr, 5 + i, 52,
+                            "%-10s %4.0f wpm %3.0f%%"
+                            % (run["mode"][:10], run["wpm"], run["accuracy"]),
+                            cp(C_CORRECT))
+
+        draw_keyboard(stdscr, key_top, profile)
+        center(stdscr, h - 1,
+               "left/right for more   -   any other key to close"
+               if len(pages) > 1 else "press any key", cp(C_PENDING))
+        stdscr.refresh()
+
+        key = stdscr.getch()
+        if len(pages) > 1 and key in (curses.KEY_RIGHT, ord("l"), ord(" ")):
+            page = (page + 1) % len(pages)
+        elif len(pages) > 1 and key in (curses.KEY_LEFT, ord("h")):
+            page = (page - 1) % len(pages)
+        else:
+            return
 
 
 def celebrate_badges(stdscr, new_badges):
@@ -466,6 +503,33 @@ def celebrate_tricks(stdscr, profile, letters):
              "(your %s key went green)" % letter.upper()],
             "NEW TRICK",
             art=kitty.art("pounce"),
+        )
+
+
+def celebrate_milestones(stdscr, profile, fresh):
+    """
+    Unlocked-by-accumulation items. Informational, never a payout.
+
+    A returning kid can trip several at once the first time this runs --
+    that is the retroactive credit working -- so they come one at a time
+    but the copy never counts them or ranks them. Each one names what was
+    accumulated, not how well anything was done.
+    """
+    kitty = cat.Cat.from_profile(profile)
+    for item_id, blurb in fresh:
+        item = shop.BY_ID.get(item_id)
+        if not item:
+            continue
+        ui.celebrate(
+            stdscr,
+            ["%s -- for %s." % (item["name"], blurb),
+             "",
+             "Not for sale. This one only comes from",
+             "turning up and doing the work.",
+             "",
+             '"%s"' % item["says"]],
+            title="YOU EARNED SOMETHING",
+            art=kitty.art("overjoyed") if kitty else None,
         )
 
 
@@ -673,6 +737,7 @@ def after_session(stdscr, all_profiles, profile, mode_name, summary):
         announce_catches(stdscr, profile, summary.get("species") or [])
     if fresh:
         celebrate_badges(stdscr, fresh)
+    celebrate_milestones(stdscr, profile, milestones.check_new(profile))
     # Last, so a stage-up lands after the letter that earned it.
     check_growth(stdscr, all_profiles, profile)
     profiles.save_all(all_profiles)
@@ -1189,6 +1254,10 @@ def main_menu(stdscr, all_profiles, profile):
     # A new day can be the day the cat grows, and a ceremony interrupted
     # last time is still owed. Both are settled before the menu appears.
     check_growth(stdscr, all_profiles, profile)
+    # Retroactive credit lands here for a kid whose history predates the
+    # feature -- several at once is the design working, not a bug.
+    celebrate_milestones(stdscr, profile, milestones.check_new(profile))
+    profiles.save_all(all_profiles)
     show_up_gift(stdscr, all_profiles, profile, first_today)
 
     if first_today and profile["current_streak"] > 1:

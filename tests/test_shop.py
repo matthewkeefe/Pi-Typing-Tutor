@@ -38,7 +38,12 @@ class TestCatalog(unittest.TestCase):
                 self.assertIn(field, item, item["id"])
             self.assertTrue(item["name"].isascii())
             self.assertTrue(item["says"].isascii())
-            self.assertGreater(item["price"], 0)
+            if item.get("milestone"):
+                # Earned, never bought: a price would imply fish could
+                # reach it, which is the one thing these must not be.
+                self.assertEqual(item["price"], 0, item["id"])
+            else:
+                self.assertGreater(item["price"], 0)
 
     def test_decor_art_fits_the_menu_corner(self):
         for item in shop.CATALOG:
