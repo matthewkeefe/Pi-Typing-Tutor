@@ -17,7 +17,7 @@ edits, not just re-runs.
 
 import random
 import zlib
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from core import adaptive, ui
 
@@ -178,6 +178,12 @@ def gauge(profile, task, now=None):
 
 def gauges(profile, now=None):
     return {t: gauge(profile, t, now) for t in CARE_TASKS}
+
+
+def hours_for_level(level):
+    """Inverse of `gauge`: how long ago a task must have been done to sit here."""
+    level = max(0.0, min(1.0, level))
+    return GAUGE_FULL_HOURS + (1.0 - level) * (GAUGE_EMPTY_HOURS - GAUGE_FULL_HOURS)
 
 
 def needs(profile, now=None):
@@ -604,7 +610,34 @@ def new_seed(rng=None):
     return rng.randrange(1, 1000000)
 
 
-def blank_cat_data(seed, name, today, growth=0):
+# A kitten arrives already looked after. Hatching is a delighted moment,
+# and five empty bars underneath it would read as "you're already behind"
+# thirty seconds into owning a cat. It starts fed and watered, wanting a
+# cuddle and a game -- which is also a nudge toward the two warmest tasks.
+HATCH_GAUGES = {
+    "food": 0.7, "water": 0.7, "clean": 0.6, "pets": 0.4, "play": 0.3,
+}
+
+
+def _hatch_care(now):
+    """
+    Backdated care stamps giving a new kitten the levels above.
+
+    Every stamp is dated before today, so the day's five tasks are still
+    the day's five tasks: this changes how the cat *looks*, never what
+    the kid does. Expressing the starting state as ordinary care history
+    also means nothing else needs a special case for a new cat.
+    """
+    yesterday_end = (datetime.combine(now.date(), datetime.min.time())
+                     - timedelta(seconds=1))
+    care = {}
+    for task, level in HATCH_GAUGES.items():
+        when = now - timedelta(hours=hours_for_level(level))
+        care[task] = min(when, yesterday_end).isoformat(timespec="seconds")
+    return care
+
+
+def blank_cat_data(seed, name, today, growth=0, now=None):
     """The `cat` block as it lands in the profile (DESIGN 9.3)."""
     return {
         "seed": seed,
@@ -612,6 +645,6 @@ def blank_cat_data(seed, name, today, growth=0):
         "hatched": today,
         "tricks": [],
         "growth": growth,
-        "care": {},
+        "care": _hatch_care(now or datetime.now()),
         "wary": False,
     }

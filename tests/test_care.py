@@ -120,6 +120,57 @@ class TestDailyCare(unittest.TestCase):
         self.assertIn("food", p["cat"]["care"])
 
 
+class TestHatchState(unittest.TestCase):
+    """A new kitten arrives looked after, without skipping the day's practice."""
+
+    def hatched_at(self, hour, minute=0):
+        now = NOW.replace(hour=hour, minute=minute)
+        p = {"name": "Kid",
+             "cat": cat.blank_cat_data(42, "Mochi", now.date().isoformat(), now=now)}
+        return p, now
+
+    def test_gauges_start_part_full_not_empty(self):
+        p, now = self.hatched_at(18)
+        levels = cat.gauges(p, now)
+        for task in cat.CARE_TASKS:
+            self.assertGreater(levels[task], 0.0, task)
+            self.assertLess(levels[task], 1.0, task)
+        average = sum(levels.values()) / len(levels)
+        self.assertGreater(average, 0.35)
+        self.assertLess(average, 0.75)
+
+    def test_the_kitten_reads_as_comfy(self):
+        p, now = self.hatched_at(18)
+        self.assertEqual(cat.mood(p, now), "content")
+        self.assertFalse(cat.is_wary(p, now))
+
+    def test_the_days_tasks_are_all_still_the_days_tasks(self):
+        """
+        The whole point: this must not hand anyone a free pass. Starting
+        levels are cosmetic; the checklist and the free-play gate are
+        date-based and untouched.
+        """
+        for hour in range(24):
+            p, now = self.hatched_at(hour, 30)
+            self.assertEqual(cat.tasks_left_today(p, now.date()),
+                             list(cat.CARE_TASKS), "hatched at %02d:30" % hour)
+            self.assertFalse(cat.care_done_today(p, now.date()))
+
+    def test_a_midnight_hatch_still_lands_in_range(self):
+        """Clamping to 'before today' can't push a gauge out of bounds."""
+        for hour in (0, 1, 23):
+            p, now = self.hatched_at(hour, 5)
+            for level in cat.gauges(p, now).values():
+                self.assertGreaterEqual(level, 0.0)
+                self.assertLessEqual(level, 1.0)
+            self.assertFalse(cat.is_wary(p, now))
+
+    def test_it_still_drifts_down_like_any_other_cat(self):
+        p, now = self.hatched_at(18)
+        later = now + timedelta(days=2)
+        self.assertEqual(cat.gauges(p, later), {t: 0.0 for t in cat.CARE_TASKS})
+
+
 class TestMood(unittest.TestCase):
     def test_full_care_is_thriving(self):
         self.assertEqual(cat.mood(profile_with(all_cared(0)), NOW), "thriving")
