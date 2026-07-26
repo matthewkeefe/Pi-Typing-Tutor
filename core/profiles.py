@@ -9,6 +9,8 @@ import os
 import tempfile
 from datetime import date, timedelta
 
+from core import adaptive
+
 DATA_DIR = os.environ.get(
     "TYPING_TUTOR_DATA",
     os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data"),
@@ -37,6 +39,10 @@ def _blank_profile(name):
         "memorize_completions": 0,
         "badges": [],
         "history": [],  # [{date, mode, wpm, accuracy, words, seconds}]
+        # Adaptive engine. Both are top-level so get_or_create's setdefault
+        # pass migrates saves written before it existed.
+        "keys": {},  # {ch: {"n", "err", "ms", "conf"}}
+        "alphabet": adaptive.START_ALPHABET,
     }
 
 

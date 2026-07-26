@@ -12,7 +12,7 @@ import curses
 import random
 import time
 
-from core import lessons, ui, engine
+from core import lessons, ui, engine, adaptive
 from core.ui import cp, safe_addstr, center, C_TITLE, C_WARN, C_CORRECT, C_WRONG, C_PENDING, C_ACCENT
 
 DINO_IDLE = [
@@ -59,6 +59,17 @@ def _spawn_gap(score):
     return max(0.35, 1.1 - score * 0.004)
 
 
+def _next_letter(profile, level):
+    """
+    Once the kid has fed the adaptive engine, spawns lean on the letters
+    they're worst at. Before that (and for saves from before the engine
+    existed) it's the old level-based pick.
+    """
+    if adaptive.has_data(profile):
+        return adaptive.weighted_char(profile, random)
+    return lessons.random_char(level)
+
+
 def play(stdscr, profile):
     level = profile.get("rocket_level", 1)  # reuse unlocked level as difficulty
     h, w = stdscr.getmaxyx()
@@ -93,7 +104,7 @@ def play(stdscr, profile):
 
         # --- spawn ---
         if now >= next_spawn:
-            ch = lessons.random_char(level)
+            ch = _next_letter(profile, level)
             row = lane_top + random.randrange(lane_rows)
             letters.append(Letter(ch, w - 2, row))
             next_spawn = now + _spawn_gap(score)
@@ -135,14 +146,18 @@ def play(stdscr, profile):
                     match = L
             if match is not None:
                 letters.remove(match)
-                sess.keystroke(True)
+                sess.keystroke(True, ch=match.ch)
                 sess.word_done()
                 combo += 1
                 best_combo = max(best_combo, combo)
                 score += 1 + combo // 10
                 chomp_until = now + 0.12
             else:
-                sess.keystroke(False)
+                # Nothing on screen matched. The letter they *should* have
+                # hit is the one closest to the dino, so the miss counts
+                # against that key -- there's no other expected char here.
+                missed = min(letters, key=lambda L: L.x, default=None)
+                sess.keystroke(False, ch=missed.ch if missed else None)
                 combo = 0
                 flash_until = now + 0.15
 

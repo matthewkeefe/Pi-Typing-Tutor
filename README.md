@@ -239,7 +239,8 @@ crashing, so a bad shutdown mid-write costs at most the last session.
 main.py               entry point, profile picker, menu, stats, badge screens
 install-pi.sh         one-shot Pi lockdown + autostart installer
 core/lessons.py       7 progressive levels, home row -> sentences
-core/engine.py        shared WPM/accuracy measurement
+core/engine.py        shared WPM/accuracy measurement + per-key capture
+core/adaptive.py      per-key confidence, letter unlocks, word generator
 core/profiles.py      JSON save data, day streaks, atomic writes
 core/badges.py        22 badge definitions and award logic
 core/ui.py            curses helpers: colors, menus, per-char typing display
@@ -248,14 +249,43 @@ modes/dino.py         endless letter chomper
 modes/platformer.py   accuracy-focused jumper
 modes/memorize.py     progressive-occlusion repetition drill
 data/passages.txt     your own memorize content
+tests/                stdlib unittest suite for the non-curses code
 ```
 
 Adding a mode means writing a `play(stdscr, profile)` that returns a session
 summary dict and adding it to the list in `main_menu()`.
 
+Run the tests with `python3 -m unittest discover -s tests`.
+
+## The adaptive engine
+
+`core/adaptive.py` is a stdlib port of keybr's mechanism, and it runs quietly
+under the modes rather than as a screen of its own:
+
+- Every drill keystroke a mode reports (`sess.keystroke(correct, ch=expected)`)
+  becomes per-key statistics: how often that key is missed, how long it takes.
+  Modes that don't pass `ch` are unaffected.
+- Each key gets a 0..1 confidence blending speed and accuracy. At 0.8 it's
+  **green** — mastered.
+- Kids start with six letters (`e n i t r l`). When all of them are green,
+  exactly one new letter unlocks, down the English frequency list.
+- Drill words are pronounceable pseudo-words generated from an English bigram
+  table, restricted to the unlocked letters, with the kid's weakest letter
+  worked into every word.
+
+You can watch all of it on the stats screen: the keyboard heatmap paints
+mastered keys green, unlocked-but-learning yellow, and not-yet-reached blue.
+Dino Chomp uses the same data to spawn the letters a kid is worst at.
+
+Old save files pick this up automatically — the profile gains `keys` and
+`alphabet` on first load.
+
 ## Tuning it for your kids
 
 - **Word lists** — `core/lessons.py`, the `LEVELS` list. Swap in their spelling words.
+- **Mastery pace** — `core/adaptive.py`, the tuning block at the top: `GREEN`
+  (how good counts as mastered), `TARGET_MS`/`FLOOR_MS` (what fast means for
+  your kid), `MIN_SAMPLES` (evidence needed before a key can go green).
 - **Rocket pass threshold** — `modes/rocket.py`, the `85.0` in `play()`.
 - **Dino difficulty ramp** — `modes/dino.py`, `_speed_for()` and `_spawn_gap()`.
 - **Platformer harshness** — `modes/platformer.py`, `RUN_LENGTH` and `LIVES`.

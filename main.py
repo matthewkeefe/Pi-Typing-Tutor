@@ -14,7 +14,7 @@ Data lives in ./data/profiles.json (override with $TYPING_TUTOR_DATA).
 import curses
 import sys
 
-from core import profiles, badges, ui, lessons
+from core import profiles, badges, ui, lessons, adaptive
 from core.ui import cp, center, safe_addstr, C_TITLE, C_WARN, C_CORRECT, C_PENDING, C_ACCENT, C_BADGE
 from modes import rocket, dino, platformer, memorize
 
@@ -112,6 +112,44 @@ def show_badges(stdscr, profile):
             idx = idx + per_page if more else 0
 
 
+KEY_ROWS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
+
+
+def draw_keyboard(stdscr, top, profile):
+    """
+    The heatmap: the kid's own keyboard, greening up as they master it.
+    Cheapest, loudest "look how much better you are" display we have.
+    """
+    unlocked = adaptive.alphabet(profile)
+    focus = adaptive.focus_letter(profile)
+    x0 = 6
+
+    head = "YOUR KEYBOARD"
+    safe_addstr(stdscr, top, x0, head, cp(C_ACCENT, True))
+    safe_addstr(stdscr, top, x0 + 17,
+                "%d of 26 letters unlocked" % len(unlocked), cp(C_PENDING))
+    if focus:
+        safe_addstr(stdscr, top, x0 + 46,
+                    "working on: %s" % focus.upper(), cp(C_WARN, True))
+
+    attrs = {
+        "green": cp(C_CORRECT, True),
+        "learning": cp(C_WARN, True),
+        "locked": cp(C_PENDING) | curses.A_DIM,
+    }
+    for r, row in enumerate(KEY_ROWS):
+        for i, ch in enumerate(row):
+            attr = attrs[adaptive.key_state(profile, ch)]
+            if ch == focus:
+                attr |= curses.A_REVERSE
+            safe_addstr(stdscr, top + 1 + r, x0 + r + i * 2, ch.upper(), attr)
+
+    legend = top + 1 + len(KEY_ROWS)
+    safe_addstr(stdscr, legend, x0, "green = mastered", cp(C_CORRECT))
+    safe_addstr(stdscr, legend, x0 + 20, "yellow = learning", cp(C_WARN))
+    safe_addstr(stdscr, legend, x0 + 42, "blue = not yet", cp(C_PENDING))
+
+
 def show_stats(stdscr, profile):
     stdscr.erase()
     h, w = stdscr.getmaxyx()
@@ -148,6 +186,8 @@ def show_stats(stdscr, profile):
                         "%-10s %4.0f wpm %3.0f%%" % (run["mode"][:10], run["wpm"], run["accuracy"]),
                         cp(C_CORRECT))
 
+    draw_keyboard(stdscr, min(h - 7, 16), profile)
+
     center(stdscr, h - 2, "press any key", cp(C_PENDING))
     stdscr.refresh()
     stdscr.getch()
@@ -163,7 +203,27 @@ def celebrate_badges(stdscr, new_badges):
         )
 
 
+def announce_letters(stdscr, profile, letters):
+    """
+    A new letter is information, not a prize: it says "the ones you had
+    are solid, here's the next one." No score, no payout.
+    """
+    for ch in letters:
+        ui.message(
+            stdscr,
+            [
+                "Every letter you had went green,",
+                "so your keyboard just grew one more.",
+                "",
+                "%d of 26 letters unlocked" % len(adaptive.alphabet(profile)),
+            ],
+            title="NEW LETTER: %s" % ch.upper(),
+            art=["", "   [ %s ]   " % ch.upper(), ""],
+        )
+
+
 def after_session(stdscr, all_profiles, profile, mode_name, summary):
+    progress = {"green": [], "unlocked": []}
     if summary:
         profiles.record_session(
             profile,
@@ -174,8 +234,10 @@ def after_session(stdscr, all_profiles, profile, mode_name, summary):
             summary["chars"],
             summary["seconds"],
         )
+        progress = adaptive.merge_keys(profile, summary.get("keys"))
     fresh = badges.check_new(profile)
     profiles.save_all(all_profiles)
+    announce_letters(stdscr, profile, progress["unlocked"])
     if fresh:
         celebrate_badges(stdscr, fresh)
 
