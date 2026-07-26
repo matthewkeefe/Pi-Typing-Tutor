@@ -12,7 +12,7 @@ point of this drill is clean keystrokes on hard keys, not speed.
 
 import curses
 
-from core import adaptive, cat, engine, fx, ui
+from core import adaptive, cat, engine, fx, scrapbook, ui
 from core.ui import (cp, safe_addstr, center, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_WRONG)
 
@@ -101,6 +101,7 @@ def play(stdscr, profile):
     typed = ""
     err = False
     caught = 0
+    new_species = []
 
     curses.curs_set(0)
     stdscr.nodelay(False)
@@ -135,6 +136,10 @@ def play(stdscr, profile):
         if typed == target:
             sess.word_done()
             caught += 1
+            # A word containing a letter whose species is still a
+            # silhouette hooks it. No roll: rarity is English, not a dice
+            # table -- see core/scrapbook.py.
+            new_species.extend(scrapbook.catch_from_word(profile, target))
             h, w = stdscr.getmaxyx()
             _fly_fish(stdscr, profile, kitty, target, caught,
                       (w - len(target)) // 2, max(2, w // 2 - 24) + 4)
@@ -163,4 +168,7 @@ def play(stdscr, profile):
 
     ui.message(stdscr, lines, title=title,
                art=kitty.art("overjoyed") if kitty and caught else None)
-    return sess.summary()
+    summary = sess.summary()
+    if new_species:
+        summary["species"] = new_species
+    return summary

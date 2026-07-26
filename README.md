@@ -218,6 +218,24 @@ back into a transcription drill, which every other mode already does.
 
 ---
 
+## The Scrapbook
+
+The shop is where fish go; the Scrapbook is where everything else piles up. Fish
+species, gifts the cat drags in, toys and outfits owned, tricks taught, contest
+ribbons. Reachable from the menu, never gated.
+
+Fish rarity isn't a dice roll — it's English. One species per letter, caught
+automatically by typing a word containing it. A kid meets the eel in their first
+week because `e` is in everything, and the queen angel is a legend because `q` is
+the last letter they unlock and turns up in almost nothing. No rolls, no
+near-misses, no "keep fishing and maybe" — a random drop table here would be a
+loot box pointed at a seven-year-old, and the emergent rarity is better than the
+manufactured kind anyway.
+
+Unfound items show as `? ? ?`. That says "there's more to find" and never "you
+missed it": nothing in the Scrapbook expires, and **nothing in it can ever be
+lost**. There is deliberately no code path that removes an entry.
+
 ## Progression and badges
 
 Every profile tracks day streaks, total words, best WPM, best accuracy, and per-mode
@@ -331,6 +349,7 @@ core/fx.py            ASCII particle effects: sparks, confetti, splashes, purrs
 core/shop.py          item catalog, weekly rotation, fish economy, treat effects
 core/wordlist.py      shared word-list access: loading, filtering, bowl building
 core/ghosts.py        race recordings: shared tracks, splits, bounded storage
+core/scrapbook.py     collection albums: fish species, gifts, derived pages
 modes/rocket.py       level-based ship builder
 modes/dino.py         endless letter chomper
 modes/platformer.py   accuracy-focused jumper (the cat is the jumper)

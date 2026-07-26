@@ -16,7 +16,8 @@ import random
 import sys
 from datetime import date
 
-from core import profiles, badges, ui, lessons, adaptive, cat, engine, fx, shop
+from core import (profiles, badges, ui, lessons, adaptive, cat, engine, fx,
+                  shop, scrapbook)
 from core.ui import (cp, center, safe_addstr, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_BADGE, C_DEFAULT)
 from modes import (rocket, dino, platformer, memorize, care, yarn, soup,
@@ -468,6 +469,58 @@ def celebrate_tricks(stdscr, profile, letters):
         )
 
 
+def show_up_gift(stdscr, all_profiles, profile, first_today):
+    """
+    The cat brings something in, for turning up. Deferred out of Phase 3
+    (issue #9) because there was nowhere to put a feather until the
+    Scrapbook existed.
+
+    For SHOWING UP, not for performing -- it fires on the first login of
+    a day and knows nothing about speed, accuracy or streaks. A kid
+    returning after a month away gets the same warm hello as one who was
+    here yesterday (guard 2: absence freezes, it never reverses).
+
+    Once every gift has been found it stops rather than repeating, which
+    is the honest end of a collection. #30 adds the escalation.
+    """
+    if not first_today:
+        return
+    kitty = cat.Cat.from_profile(profile)
+    if kitty is None:
+        return
+
+    have = set(scrapbook.found_gifts(profile))
+    remaining = [g for g in scrapbook.GIFT_IDS if g not in have]
+    if not remaining:
+        return
+
+    # Deterministic from the day, so a restart can't reroll for a better
+    # one -- and there is no better one, which is the point.
+    pick = remaining[abs(hash_day(profile)) % len(remaining)]
+    found = scrapbook.find_gift(profile, pick)
+    if not found:
+        return
+    profiles.save_all(all_profiles)
+
+    ui.celebrate(
+        stdscr,
+        ["%s dropped something at your feet." % kitty.name,
+         "",
+         "It's %s." % found,
+         "",
+         "Straight into the scrapbook."],
+        title="A PRESENT",
+        art=kitty.art("overjoyed"),
+    )
+
+
+def hash_day(profile):
+    """A stable per-day number, so the day's gift can't be rerolled."""
+    import zlib
+    stamp = "%s:%s" % (profile.get("name", ""), date.today().isoformat())
+    return zlib.crc32(stamp.encode("utf-8"))
+
+
 def growth_ceremony(stdscr, all_profiles, profile):
     """
     The cat growing up: sleeps, stretches, and comes back bigger.
@@ -616,6 +669,8 @@ def after_session(stdscr, all_profiles, profile, mode_name, summary):
     profiles.save_all(all_profiles)
     announce_letters(stdscr, profile, progress["unlocked"])
     celebrate_tricks(stdscr, profile, progress["green"])
+    if summary:
+        announce_catches(stdscr, profile, summary.get("species") or [])
     if fresh:
         celebrate_badges(stdscr, fresh)
     # Last, so a stage-up lands after the letter that earned it.
@@ -844,6 +899,89 @@ def use_treat_screen(stdscr, all_profiles, profile):
         )
 
 
+def scrapbook_screen(stdscr, profile):
+    """
+    The album. Never gated -- looking at what you've collected costs
+    nothing, and on an empty page the silhouettes are the invitation.
+
+    Unfound items are `? ? ?` rather than a count of what's missing or
+    any hint of a deadline. "There is more to find" is the whole message;
+    a collection screen is exactly where a game would normally start
+    manufacturing urgency, and this one doesn't.
+    """
+    pages = scrapbook.albums(profile)
+    if not pages:
+        return
+    kitty = cat.Cat.from_profile(profile)
+    page = 0
+
+    while True:
+        title, rows = pages[page]
+        found, total = scrapbook.page_progress(rows)
+
+        stdscr.erase()
+        h, w = stdscr.getmaxyx()
+        center(stdscr, 0, "%s's SCRAPBOOK" % profile["name"], cp(C_TITLE, True))
+        safe_addstr(stdscr, 1, 2, "%s  --  %d of %d" % (title, found, total),
+                    cp(C_ACCENT, True))
+        safe_addstr(stdscr, 1, max(30, w - 26),
+                    "page %d of %d" % (page + 1, len(pages)), cp(C_PENDING))
+
+        # Two columns, so 26 fish fit on one page at 80x24. The floor
+        # stops above the cat in the corner: the second column shares its
+        # columns, so a full page would otherwise draw items through it.
+        top = 3
+        room = max(4, h - 9)
+        col_w = max(18, (w - 8) // 2)
+        for i, (label, got, note) in enumerate(rows[:room * 2]):
+            row = top + i % room
+            x = 4 + (i // room) * col_w
+            text = label if got else "? ? ?"
+            if got and note:
+                text = "%s (%s)" % (label, note)
+            safe_addstr(stdscr, row, x, text[:col_w - 2],
+                        cp(C_CORRECT, True) if got else cp(C_PENDING))
+
+        if kitty is not None and w > 60:
+            kitty.draw(stdscr, h - 6, max(2, w - kitty.width("sit") - 3), "sit")
+
+        center(stdscr, h - 2, "nothing here can ever be lost", cp(C_PENDING))
+        center(stdscr, h - 1,
+               "left/right to turn the page   -   ESC to close", cp(C_PENDING))
+        stdscr.refresh()
+
+        key = stdscr.getch()
+        if engine.is_quit(key) or key in (ord("q"), ord("Q")):
+            return
+        if key in (curses.KEY_RIGHT, ord("l"), ord(" ")):
+            page = (page + 1) % len(pages)
+        elif key in (curses.KEY_LEFT, ord("h")):
+            page = (page - 1) % len(pages)
+
+
+def announce_catches(stdscr, profile, catches):
+    """
+    New species, stamped into the album.
+
+    One popup for the batch: a kid typing "quiet" early on can hook four
+    at once, and four popups would bury the moment the rare one turned up.
+    """
+    if not catches:
+        return
+    rare = [(c, n) for c, n in catches
+            if scrapbook.fish_tier(c) in ("rare", "legendary")]
+    lines = ["  ".join(n for _, n in catches), ""]
+    if rare:
+        lines.append("The %s is a rare one!" % rare[0][1])
+    else:
+        lines.append("Stamped into your scrapbook.")
+    ui.celebrate(
+        stdscr, lines,
+        "NEW FISH" if len(catches) == 1 else "%d NEW FISH" % len(catches),
+        art=["", "   > < >   ", ""],
+    )
+
+
 def dress_up_screen(stdscr, all_profiles, profile):
     """
     Swap between accessories already owned, or take everything off.
@@ -1036,6 +1174,7 @@ def build_menu(profile, gated):
     # Never gated: browsing costs nothing and looking at things you're
     # saving for is half the fun of saving for them.
     entries.append(("The Shop", ("shop", None)))
+    entries.append(("My Scrapbook", ("scrapbook", None)))
     entries.append(("My Badges", ("badges", None)))
     entries.append(("My Stats", ("stats", None)))
     entries.append(("Switch player", ("switch", None)))
@@ -1050,6 +1189,7 @@ def main_menu(stdscr, all_profiles, profile):
     # A new day can be the day the cat grows, and a ceremony interrupted
     # last time is still owed. Both are settled before the menu appears.
     check_growth(stdscr, all_profiles, profile)
+    show_up_gift(stdscr, all_profiles, profile, first_today)
 
     if first_today and profile["current_streak"] > 1:
         lines = ["Day %d in a row. Keep it going!" % profile["current_streak"]]
@@ -1110,6 +1250,9 @@ def main_menu(stdscr, all_profiles, profile):
             return "switch"
         if action == "shop":
             shop_screen(stdscr, all_profiles, profile)
+            continue
+        if action == "scrapbook":
+            scrapbook_screen(stdscr, profile)
             continue
         if action == "badges":
             show_badges(stdscr, profile)
