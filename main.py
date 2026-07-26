@@ -343,6 +343,24 @@ def show_stats(stdscr, profile):
         ("Best WPM", "%.1f" % profile["best_wpm"]),
         ("Best accuracy", "%.1f%%" % profile["best_accuracy"]),
         ("", ""),
+    ]
+
+    # Growth, and what the next stage is waiting on. Shown as two plain
+    # counts rather than a bar: the point is that it arrives on its own
+    # schedule, not that there's a meter to fill.
+    kitty_stage = cat.Cat.from_profile(profile)
+    if kitty_stage is not None:
+        stage = cat.GROWTH_STAGES[cat.growth(profile)]
+        rows.append(("%s is a" % kitty_stage.name, cat.GROWTH_WORDS[stage]))
+        nxt = cat.growth_progress(profile)
+        if nxt:
+            days, need_days, letters, need_letters = nxt
+            rows.append(("Growing up needs",
+                         "%d/%d days  and  %d/%d letters"
+                         % (days, need_days, letters, need_letters)))
+        rows.append(("", ""))
+
+    rows += [
         ("Rocket", "level %d, %d/7 parts" % (profile["rocket_level"], profile["rocket_parts"])),
         ("Dino high score", "%d" % profile["dino_high_score"]),
         ("Platform streak", "%d (perfect runs: %d)" % (profile["platformer_best_streak"],
@@ -431,6 +449,76 @@ def celebrate_tricks(stdscr, profile, letters):
         )
 
 
+def growth_ceremony(stdscr, all_profiles, profile):
+    """
+    The cat growing up: sleeps, stretches, and comes back bigger.
+
+    Fires at most once per stage. The stage itself is already recorded by
+    the time we get here, so quitting halfway through costs nothing -- the
+    'seen' marker is only written at the end, which means an interrupted
+    ceremony plays again next time instead of being silently spent.
+
+    Framed as time-plus-care throughout: nothing here mentions speed,
+    accuracy, or scores. It's "look what you've grown", not a payout.
+    """
+    stage = cat.growth_unseen(profile)
+    if stage is None:
+        return
+    kitty = cat.Cat.from_profile(profile)
+    if kitty is None:
+        return
+
+    word = cat.GROWTH_WORDS[cat.GROWTH_STAGES[stage]]
+    h, w = stdscr.getmaxyx()
+    top = max(2, h // 2 - 6)
+
+    fx.clear()
+    stdscr.nodelay(True)
+    try:
+        # Asleep, then a stretch, then the reveal -- three beats so the
+        # change reads as something that happened rather than a redraw.
+        for pose, beats, note in (("sleep", 22, "%s is fast asleep..." % kitty.name),
+                                  ("groom", 16, "...and has a big stretch..."),
+                                  ("overjoyed", 26, "look how you've grown!")):
+            if pose == "overjoyed":
+                fx.spawn("burst", top + 2, w // 2, n=24)
+            for _ in range(beats):
+                stdscr.erase()
+                center(stdscr, top - 1, note, cp(C_WARN, True))
+                art_x = max(0, (w - kitty.width(pose)) // 2)
+                kitty.draw(stdscr, top + 1, art_x, pose)
+                fx.tick(fx.FRAME)
+                fx.draw(stdscr)
+                stdscr.refresh()
+                if engine.is_quit(stdscr.getch()):
+                    return          # 'seen' unwritten: it'll come back
+                curses.napms(45)
+    finally:
+        stdscr.nodelay(False)
+        fx.clear()
+
+    ui.message(
+        stdscr,
+        ["%s is a %s now." % (kitty.name, word),
+         "",
+         "That took %d days of showing up" % profile.get("days_played", 0),
+         "and %d letters learned." % len(adaptive.alphabet(profile)),
+         "",
+         "Nothing was rushed. It just happened."],
+        title="LOOK WHO GREW",
+        art=kitty.art("overjoyed"),
+    )
+    cat.mark_growth_seen(profile, stage)
+    profiles.save_all(all_profiles)
+
+
+def check_growth(stdscr, all_profiles, profile):
+    """Advance the cat if earned, then pay out any ceremony still owed."""
+    if cat.advance_growth(profile) is not None:
+        profiles.save_all(all_profiles)
+    growth_ceremony(stdscr, all_profiles, profile)
+
+
 def after_session(stdscr, all_profiles, profile, mode_name, summary):
     progress = {"green": [], "unlocked": []}
     if summary:
@@ -453,6 +541,8 @@ def after_session(stdscr, all_profiles, profile, mode_name, summary):
     celebrate_tricks(stdscr, profile, progress["green"])
     if fresh:
         celebrate_badges(stdscr, fresh)
+    # Last, so a stage-up lands after the letter that earned it.
+    check_growth(stdscr, all_profiles, profile)
     profiles.save_all(all_profiles)
 
 
@@ -835,6 +925,9 @@ def main_menu(stdscr, all_profiles, profile):
     first_today = profiles.touch_day(profile)
     fresh = badges.check_new(profile)
     profiles.save_all(all_profiles)
+    # A new day can be the day the cat grows, and a ceremony interrupted
+    # last time is still owed. Both are settled before the menu appears.
+    check_growth(stdscr, all_profiles, profile)
 
     if first_today and profile["current_streak"] > 1:
         lines = ["Day %d in a row. Keep it going!" % profile["current_streak"]]

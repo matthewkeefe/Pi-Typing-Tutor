@@ -515,6 +515,111 @@ KITTEN = {
 
 POSES = sorted(ADULT)
 
+
+# --- growth (DESIGN 3.2, issue #22) ---------------------------------
+#
+# A cat grows on time-plus-care, never on performance. Both thresholds
+# have to be met: days shown up, and letters learned. That pairing is
+# deliberate -- days alone would reward leaving the Pi switched on, and
+# letters alone would turn growth into a score. Neither is something a
+# kid can grind in an afternoon, which is the point: this is the layer
+# that pays out in months.
+#
+# Nothing here is a new counter. `days_played` and the unlocked alphabet
+# already exist and are already earned honestly.
+
+GROWTH_STAGES = ["kitten", "young", "adult", "elder"]
+
+# Kid-facing words. "elder" is never shown -- a cat that reads as old
+# reads as a cat that will die, and nothing in this game ever does.
+GROWTH_WORDS = {
+    "kitten": "kitten",
+    "young": "young cat",
+    "adult": "grown-up cat",
+    "elder": "great fluffy cat",
+}
+
+# Index by stage: what it takes to reach it. Stage 0 is free.
+GROWTH_DAYS = [0, 10, 30, 75]
+GROWTH_LETTERS = [0, 12, 20, 26]
+
+
+def growth(profile):
+    """The stage actually recorded on this cat."""
+    return int(((profile or {}).get("cat") or {}).get("growth", 0) or 0)
+
+
+def earned_growth(profile):
+    """
+    The stage this kid's history has earned, derived from data that
+    already exists. Stops at the first unmet threshold, so the stages
+    always arrive in order.
+    """
+    days = int((profile or {}).get("days_played", 0) or 0)
+    letters = len(adaptive.alphabet(profile or {}))
+    stage = 0
+    for s in range(1, len(GROWTH_STAGES)):
+        if days >= GROWTH_DAYS[s] and letters >= GROWTH_LETTERS[s]:
+            stage = s
+        else:
+            break
+    return stage
+
+
+def advance_growth(profile):
+    """
+    Move the cat up if it has earned it. Returns the new stage, or None.
+
+    Written immediately and never regressed, so an interrupted ceremony
+    can't cost a kid a stage they earned. Whether the ceremony has been
+    *seen* is tracked separately -- see `growth_unseen`.
+    """
+    data = (profile or {}).get("cat") or {}
+    if "seed" not in data:
+        return None
+    have = growth(profile)
+    earned = earned_growth(profile)
+    if earned <= have:
+        return None
+    data["growth"] = earned
+    return earned
+
+
+def growth_unseen(profile):
+    """
+    The stage whose ceremony is still owed, or None.
+
+    Quitting mid-ceremony leaves this set, so the reveal comes back next
+    time rather than being silently spent.
+    """
+    data = (profile or {}).get("cat") or {}
+    if "seed" not in data:
+        return None
+    have = growth(profile)
+    seen = int(data.get("growth_seen", 0) or 0)
+    return have if have > seen else None
+
+
+def mark_growth_seen(profile, stage):
+    data = (profile or {}).get("cat") or {}
+    if "seed" in data:
+        data["growth_seen"] = max(int(data.get("growth_seen", 0) or 0),
+                                  int(stage))
+
+
+def growth_progress(profile):
+    """
+    (days, days_needed, letters, letters_needed) for the next stage, or
+    None at full growth. Used by the stats screen -- growth is meant to be
+    something you can look forward to, not something that just happens.
+    """
+    have = growth(profile)
+    nxt = have + 1
+    if nxt >= len(GROWTH_STAGES):
+        return None
+    return (int((profile or {}).get("days_played", 0) or 0), GROWTH_DAYS[nxt],
+            len(adaptive.alphabet(profile or {})), GROWTH_LETTERS[nxt])
+
 # Ear shapes for the one-line profile glyph -- all three have to differ at
 # a glance, since the picker may be the only place a sibling sees the cat.
 GLYPH_EARS = {"pointy": ("/", "\\"), "round": ("(", ")"), "tufted": ("<", ">")}
