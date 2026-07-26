@@ -17,7 +17,7 @@ import sys
 from datetime import date
 
 from core import (profiles, badges, ui, lessons, adaptive, cat, engine, fx,
-                  shop, scrapbook, milestones)
+                  shop, scrapbook, milestones, rituals)
 from core.ui import (cp, center, safe_addstr, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_BADGE, C_DEFAULT)
 from modes import (rocket, dino, platformer, memorize, care, yarn, soup,
@@ -564,17 +564,53 @@ def show_up_gift(stdscr, all_profiles, profile, first_today):
     found = scrapbook.find_gift(profile, pick)
     if not found:
         return
+
+    # The escalation (#30) rides along: consecutive days make the gift a
+    # little bigger. An absence resets the step silently -- the gift
+    # itself never stops arriving, and nothing ever mentions the gap.
+    bonus = rituals.gift_bonus(profile)
+    if bonus:
+        profile["fish"] = profile.get("fish", 0) + bonus
     profiles.save_all(all_profiles)
 
+    lines = ["%s dropped something at your feet." % kitty.name,
+             "",
+             "It's %s." % found,
+             "",
+             "Straight into the scrapbook."]
+    if bonus:
+        lines += ["", "...and %d fish, for keeping it up." % bonus]
+
+    ui.celebrate(stdscr, lines, title="A PRESENT",
+                 art=kitty.art("overjoyed"))
+
+
+def weekend_crate(stdscr, all_profiles, profile):
+    """
+    A crate on the first weekend login of an ISO week.
+
+    Keyed to the week rather than the day, and to a week *later* than the
+    last one collected -- a Pi with a dead RTC boots into the past, and
+    merely checking "different week" would let a backwards jump reopen a
+    crate already taken, forever.
+
+    Nothing here is missable. A weekend spent away costs nothing; the
+    crate is simply there the next one.
+    """
+    fish = rituals.take_crate(profile)
+    if not fish:
+        return
+    profiles.save_all(all_profiles)
+    kitty = cat.Cat.from_profile(profile)
     ui.celebrate(
         stdscr,
-        ["%s dropped something at your feet." % kitty.name,
+        ["Something got dragged in from outside.",
          "",
-         "It's %s." % found,
+         "%d fish in it." % fish,
          "",
-         "Straight into the scrapbook."],
-        title="A PRESENT",
-        art=kitty.art("overjoyed"),
+         "There'll be another one next weekend."],
+        title="WEEKEND DELIVERY",
+        art=kitty.art("pounce") if kitty else None,
     )
 
 
@@ -853,6 +889,22 @@ def menu_cat_painter(profile, day):
         # rather than the long ones, and is capped so a long name can't
         # push it left into them.
         c.draw(win, y, x, pose)
+
+        # A seasonal touch beside the cat, and a hat on its hatch
+        # anniversary. Purely cosmetic and computed from the date, so a
+        # Pi with a wrong clock gets a pumpkin in March -- a funny bug
+        # rather than anything stored wrong. Nothing is missable: every
+        # season comes back next year.
+        mark = None
+        if rituals.is_hatch_birthday(profile):
+            mark = "_o_"
+        else:
+            spell = rituals.season()
+            if spell:
+                mark = spell[2]
+        if mark:
+            safe_addstr(win, max(0, y - 1), x + max(0, art_w // 2 - 1),
+                        mark, cp(C_WARN, True))
 
         # Everything they've bought, arranged beside them: the visible
         # record of months of care, which is the whole point of decor.
@@ -1259,6 +1311,7 @@ def main_menu(stdscr, all_profiles, profile):
     celebrate_milestones(stdscr, profile, milestones.check_new(profile))
     profiles.save_all(all_profiles)
     show_up_gift(stdscr, all_profiles, profile, first_today)
+    weekend_crate(stdscr, all_profiles, profile)
 
     if first_today and profile["current_streak"] > 1:
         lines = ["Day %d in a row. Keep it going!" % profile["current_streak"]]

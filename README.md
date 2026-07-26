@@ -251,6 +251,25 @@ Every track reads data the profile already kept, so a kid who has been playing f
 months gets full retroactive credit the first time it runs. Starting them at zero
 for a feature they never saw would be the opposite of the point.
 
+## Rituals
+
+A crate turns up on the first weekend login of each week. Seasons leave a mark
+beside the cat — a pumpkin in late October, snow in December, a hat on the cat's
+hatch anniversary. Consecutive days make the daily show-up gift a little bigger.
+
+All of it is written for a Pi whose clock may be wrong. Seasons are computed from
+the date and stored nowhere, so a dead RTC battery means a pumpkin in March — a
+funny bug rather than corrupted save data. The crate is keyed to an ISO week
+*later* than the last one collected, so a machine booting into the past can't
+reopen a crate already taken.
+
+**Nothing is missable.** Every season comes back next year, the crate is there next
+weekend, and the gift never stops arriving. A limited-time offer on a device whose
+clock might be wrong would be unfair even if the no-dark-patterns rule allowed it.
+
+Miss a week and the escalation quietly starts over. The gift still comes, and
+nothing anywhere mentions the gap.
+
 ## Progression and badges
 
 Every profile tracks day streaks, total words, best WPM, best accuracy, and per-mode
@@ -366,6 +385,7 @@ core/wordlist.py      shared word-list access: loading, filtering, bowl building
 core/ghosts.py        race recordings: shared tracks, splits, bounded storage
 core/scrapbook.py     collection albums: fish species, gifts, derived pages
 core/milestones.py    the unspendable progression bar: totals -> earned items
+core/rituals.py       weekend crate, seasons, show-up gift escalation
 modes/rocket.py       level-based ship builder
 modes/dino.py         endless letter chomper
 modes/platformer.py   accuracy-focused jumper (the cat is the jumper)
