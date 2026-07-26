@@ -246,6 +246,7 @@ core/profiles.py      JSON save data, day streaks, atomic writes
 core/badges.py        22 badge definitions and award logic
 core/ui.py            curses helpers: colors, menus, per-char typing display
 core/fx.py            ASCII particle effects: sparks, confetti, splashes, purrs
+core/shop.py          item catalog, weekly rotation, fish economy, treat effects
 modes/rocket.py       level-based ship builder
 modes/dino.py         endless letter chomper
 modes/platformer.py   accuracy-focused jumper
@@ -331,6 +332,52 @@ Nothing in the care activities can be failed. No lives, no timers, no score
 penalties. The worst available outcome is stopping early, and whatever was
 done still counts.
 
+## The shop
+
+Fish buy toys, treats, decorations and litter. New things appear each week
+plus one pick of the day, and the cat has an opinion about all of it.
+
+Browsing is never gated and never costs anything — window shopping with an
+empty pocket is a perfectly good thing for a kid to do. If they can't afford
+something the game says *"20 more fish and it's yours"* and reminds them
+nothing here ever goes away for good.
+
+- **Toys and decorations** are permanent. Decor shows up beside the cat on
+  the menu, so a shelf of stuff is the visible record of months of care.
+- **Treats** are consumables the kid chooses to use before a game: forgive
+  your first slip in Platform Jumper, get one dropped combo back in Dino
+  Chomp, or 30 seconds of double score. No treat ever types anything for
+  anybody or skips practice — they're buffers and bonuses only.
+- **Litter tiers** are streak insurance, bought *before* you need it. Clumping
+  covers one missed day, self-raking deluxe covers two.
+- **The Deluxe Cat Tree** costs 900 fish and is always on the shelf, for a kid
+  who wants something to save towards.
+
+There's no gambling anywhere in it: no loot boxes, no random rewards, no
+spinning anything. You see the price and you get the thing. Stock rotates but
+nothing expires, so missing a week costs nothing.
+
+## The wary cat
+
+Leave the cat alone for several days and it greets you from across the room
+with its ears half-back. Before it'll accept a cuddle or a game it wants a
+moment of slow, even typing — the same rhythm drill as Pets, in costume.
+Rush it and it swats and steps back; go gently and it comes closer, then
+bumps its head against your hand.
+
+This is honest — real cats are exactly like this — but it is carefully
+bounded, because the moment a kid comes back after a lapse is precisely
+where they decide whether to keep playing:
+
+- **A swat costs seconds and nothing else.** No lives, no score, no fish, no
+  streak, no progress. There is nothing in the wary state that can subtract.
+- **It's always winnable.** The distance is hard-capped and the steadiness
+  needed drops with every attempt until anyone clears it. Worst case is under
+  a minute.
+- **The cat is wary, never hostile** — "not yet, slow down", never rejection.
+- **A comeback day ends warmer than a normal one.** Finish the care board
+  after a wary spell and there's an extra fish gift and *"Mochi missed you."*
+
 ### What happens when nobody plays for a week
 
 The gauges empty and the cat sleeps and misses you. That's the whole of it.
@@ -348,6 +395,10 @@ no guilt messaging anywhere in this game, by design.
 - **How busy the screen is** — `core/fx.py`, `MAX_PARTICLES` (drop it for a
   calmer screen, or to nothing at all — every effect is additive and the game
   plays identically without them).
+- **Shop prices** — `core/shop.py`, the `price` on each `CATALOG` entry. A full
+  care day earns roughly 50 fish, so most things are a day or two of showing up.
+- **How patient the wary cat is** — `modes/care.py`, `WARY_START_DISTANCE` and
+  `WARY_MERCY` (how fast the bar drops so it stays winnable).
 - **Care pace** — `core/cat.py`, `GAUGE_FULL_HOURS` / `GAUGE_EMPTY_HOURS` (how
   fast a gauge drifts down) and `modes/care.py`, `WATER_WORDS` / `CLEAN_LINES`
   / `PURR_REPEATS` (how long each care task runs).

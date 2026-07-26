@@ -13,7 +13,7 @@ perfect-run badge.
 import curses
 import random
 
-from core import lessons, ui, engine, fx
+from core import lessons, ui, engine, fx, shop
 from core.ui import cp, safe_addstr, center, C_TITLE, C_WARN, C_CORRECT, C_WRONG, C_PENDING, C_ACCENT
 
 RUN_LENGTH = 10
@@ -170,6 +170,13 @@ def play(stdscr, profile):
                 _animate_jump(stdscr, words, current, nxt, seed, lives, streak, jdraw)
                 current = nxt
                 typed = ""
+        elif shop.take_effect(profile, shop.EFFECT_SHIELD):
+            # The treat forgives exactly one slip: the cat wobbles, the
+            # kid keeps their footing, and the word carries on. It never
+            # types the letter for them.
+            sess.keystroke(False)
+            draw(pos, HERO_JUMP, "The treat saved you! Keep going.")
+            curses.napms(700)
         else:
             sess.keystroke(False)
             falls += 1

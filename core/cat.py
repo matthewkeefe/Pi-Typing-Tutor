@@ -65,6 +65,7 @@ POSE_LINES = {
     "pounce": ["*pounce!*", "*wiggles*"],
     "swat": ["*bats at it*", "*swat*"],
     "overjoyed": ["*happy!*", "*prrrp!*"],
+    "wary": ["...", "*watching*"],
 }
 EARS = ["pointy", "round", "tufted"]
 BUILDS = ["loaf", "lanky", "round"]
@@ -238,11 +239,46 @@ def hours_since_anything(profile, now=None):
 
 def is_wary(profile, now=None):
     """
-    Nobody has been by in days. Phase 5 turns this into the win-it-back
-    beat; it never costs the kid anything either way.
+    Nobody has been by in days. Drives the win-it-back beat, which never
+    costs the kid anything either way.
     """
     hours = hours_since_anything(profile, now)
     return hours is not None and hours >= WARY_DAYS * 24
+
+
+def set_wary(profile, value=True):
+    """
+    Latch the wary state at login. Latched rather than recomputed so that
+    doing one care task mid-session doesn't make the cat flip back and
+    forth -- it warms up over the session, which is the point.
+    """
+    profile.setdefault("cat", {})["wary"] = bool(value)
+
+
+def wary_active(profile):
+    return bool((profile.get("cat") or {}).get("wary"))
+
+
+def wary_won_today(profile, today=None):
+    when = _parse_when((profile.get("cat") or {}).get("wary_cleared"))
+    return when is not None and when.date() == (today or date.today())
+
+
+def needs_win_back(profile, today=None):
+    """The beat runs once a day at most, however wary the cat is."""
+    return wary_active(profile) and not wary_won_today(profile, today)
+
+
+def mark_wary_won(profile, now=None):
+    profile.setdefault("cat", {})["wary_cleared"] = (
+        now or datetime.now()).isoformat(timespec="seconds")
+
+
+def clear_wary(profile):
+    """A full day of care and the cat is simply itself again."""
+    data = profile.setdefault("cat", {})
+    data["wary"] = False
+    data.pop("wary_cleared", None)
 
 
 # Moods, warmest first. The bottom of the range is a cat that misses you
@@ -355,6 +391,14 @@ EAR_CHARS = {
     "tufted": ("//", "\\\\"),
 }
 
+# Ears half-back: the wary cat's whole tell, and an honest one -- this is
+# exactly what a real cat does when it isn't sure about you yet.
+EAR_BACK = {
+    "pointy": ("\\/", "\\/"),
+    "round":  ("(_", "_)"),
+    "tufted": ("\\\\", "//"),
+}
+
 # A tail lying behind the cat, and the same tail held up when it's happy.
 TAIL_LIE = {"curl": "_)", "straight": "__", "puff": "_*"}
 TAIL_TIP = {"curl": ")", "straight": "|", "puff": "*"}
@@ -409,6 +453,13 @@ ADULT = {
         " /{f}{f}{f}\\",
         " {p} {p}",
     ],
+    "wary": [
+        "  {l}_{r}",
+        " ( - - )",
+        "  - ^ -",
+        " /{f}{f}{f}\\",
+        " {p} {p}{T}",
+    ],
 }
 
 KITTEN = {
@@ -453,6 +504,12 @@ KITTEN = {
         "( ^ ^ )|",
         " /{f}\\  |",
         " {p}{p}",
+    ],
+    "wary": [
+        " {l}_{r}",
+        "( - - )",
+        " /{f}\\",
+        " {p}{p}{T}",
     ],
 }
 
@@ -532,11 +589,14 @@ class Cat:
     def _render(self, pose, growth=None):
         """The pose as [(text, accent_columns), ...] with genes filled in."""
         left, right = EAR_CHARS[self.ears]
+        back_l, back_r = EAR_BACK[self.ears]
         fur = FUR[self.fur]
         fill = fur["fill"]
         subs = {
             "L": (left, False),
             "R": (right, False),
+            "l": (back_l, False),
+            "r": (back_r, False),
             "E": (self.eyes, False),
             "f": (fill, fill != " "),
             "p": ("(_)", fur["paws"]),
@@ -590,6 +650,16 @@ class Cat:
             if r <= 0:
                 return n
         return names[-1]
+
+    @property
+    def favourite_treat(self):
+        from core import shop   # deferred: shop is a consumer of cats
+        return shop.favourite_treat(self.seed)
+
+    @property
+    def favourite_toy(self):
+        from core import shop
+        return shop.favourite_toy(self.seed)
 
     def says(self, pose, rng=None):
         """A short idle line for the speech bubble."""

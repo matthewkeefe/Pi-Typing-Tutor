@@ -17,13 +17,15 @@ whatever was done still counts.
 
 import curses
 import random
+import time
 
-from core import cat, engine, lessons, ui
+from core import cat, engine, fx, lessons, shop, ui
 from core.ui import (cp, safe_addstr, center, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_WRONG, C_DEFAULT)
 from modes import feed
 
-BOARD_BONUS = 10  # fish for looking after everything
+BOARD_BONUS = 10     # fish for looking after everything
+COMEBACK_BONUS = 15  # extra, on the first full day back after a wary spell
 
 PURR_PHRASES = [
     "such a good cat",
@@ -267,6 +269,143 @@ def _wrap_up(stdscr, kitty, done, total, title, full_line, partial_line):
     )
 
 
+# --- the wary cat: winning it back -----------------------------------
+#
+# After days alone the cat sits back and watches before it lets you get
+# on with things. This is honest pet education -- real cats are exactly
+# like this -- but the research is unambiguous that punishment dynamics
+# hit kids harder than adults, and that the comeback moment is precisely
+# where a lapsed kid quits for good. So the rules are strict:
+#
+#   * A swat costs SECONDS. Nothing in this section may deduct lives,
+#     score, fish, streaks, gauges or any progress -- and it doesn't:
+#     the only profile writes here are the wary flags themselves.
+#   * It is always winnable. The distance is hard-capped, and the bar for
+#     calming the cat drops every attempt until anyone clears it.
+#   * The cat is wary, never hostile. "Not yet, slow down" -- not "no".
+
+WARY_START_DISTANCE = 4
+WARY_MAX_DISTANCE = 6        # hard cap, so it can never run away from you
+WARY_BASE_EVENNESS = 0.45    # steadiness needed at the first attempt...
+WARY_MERCY = 0.06            # ...falling this much per attempt, forever
+
+CALM_PHRASES = ["easy now", "hello you", "it's me", "good cat", "no rush"]
+
+
+def _wary_scene(stdscr, kitty, distance, target, typed, swatted, note):
+    stdscr.erase()
+    h, w = stdscr.getmaxyx()
+    center(stdscr, 0, "S L O W L Y   N O W", cp(C_TITLE, True))
+    center(stdscr, 1, "type gently and evenly -- %s is deciding about you"
+           % (kitty.name if kitty else "the cat"), cp(C_PENDING))
+
+    # The cat literally sits further away the warier it is.
+    floor_row = 9
+    cat_x = max(2, w // 2 - 6 + distance * 5)
+    safe_addstr(stdscr, floor_row, 2, "." * max(0, w - 4), cp(C_PENDING))
+    if kitty:
+        pose = "swat" if swatted else ("wary" if distance else "overjoyed")
+        # Drawn after the floor so it stands on the ground, not under it.
+        kitty.draw(stdscr, floor_row - kitty.height(pose), cat_x, pose)
+
+    bar = "  ".join("." * distance) or "(right here)"
+    center(stdscr, floor_row + 2, bar, cp(C_WARN))
+    center(stdscr, floor_row + 3, note, cp(C_ACCENT, True) if note else 0)
+
+    tx = max(0, (w - len(target)) // 2)
+    ui.draw_typing_line(stdscr, floor_row + 6, tx, target, typed)
+    center(stdscr, h - 1, "nothing here can go wrong -- ESC to step away",
+           cp(C_PENDING))
+    fx.tick(fx.FRAME)
+    fx.draw(stdscr)
+    stdscr.refresh()
+
+
+def win_it_back(stdscr, profile):
+    """
+    Coax a wary cat back. Always succeeds eventually; the only currency
+    is patience.
+
+    Deliberately returns nothing and records no session: the beat is a
+    warm-up, not practice for credit, which keeps the "costs seconds
+    only" guarantee true by construction rather than by care.
+    """
+    kitty = cat.Cat.from_profile(profile)
+    rng = random.Random()
+    distance = WARY_START_DISTANCE
+    attempts = 0
+    swatted = False
+    note = "%s is keeping its distance." % (kitty.name if kitty else "The cat")
+
+    curses.curs_set(0)
+    stdscr.nodelay(False)
+    fx.clear()
+
+    while distance > 0:
+        target = rng.choice(CALM_PHRASES)
+        typed = ""
+        clean = True
+        marks = []
+        last = None
+
+        while typed != target:
+            _wary_scene(stdscr, kitty, distance, target, typed, swatted, note)
+            key = stdscr.getch()
+            if engine.is_quit(key):
+                return False          # stepping away costs nothing at all
+            if engine.is_backspace(key):
+                typed = typed[:-1]
+                continue
+            if not engine.is_typable(key):
+                continue
+
+            now = time.monotonic()
+            if last is not None:
+                marks.append((now - last) * 1000.0)
+            last = now
+
+            expected = target[len(typed)]
+            if chr(key) == expected:
+                typed += chr(key)
+                swatted = False
+            else:
+                clean = False
+
+        attempts += 1
+        # The bar drops every time, so however this is going, it resolves.
+        needed = max(0.0, WARY_BASE_EVENNESS - attempts * WARY_MERCY)
+        steady = engine.evenness(marks) >= needed
+
+        if clean and steady:
+            distance -= 1
+            swatted = False
+            note = ("%s comes a little closer."
+                    % (kitty.name if kitty else "The cat")) if distance else ""
+        else:
+            # A swat is a warning, not a punishment: it adds a few
+            # keystrokes and takes nothing.
+            distance = min(WARY_MAX_DISTANCE, distance + 1)
+            swatted = True
+            note = "*swat* -- not yet. Slower."
+            h, w = stdscr.getmaxyx()
+            fx.spawn("bang", 5, max(2, w // 2 - 6 + distance * 5))
+
+    cat.mark_wary_won(profile)
+    if kitty:
+        for _ in range(3):
+            fx.spawn("purr", 4, stdscr.getmaxyx()[1] // 2)
+    ui.message(
+        stdscr,
+        ["%s bumps its head against your hand." % (kitty.name if kitty else "The cat"),
+         "",
+         "Friends again. That's all it wanted."],
+        title="PURRRR",
+        art=kitty.art("overjoyed") if kitty else None,
+    )
+    fx.clear()
+    return True
+
+
 # --- the board -------------------------------------------------------
 
 
@@ -325,6 +464,14 @@ def board(stdscr, profile, play_slot, after_task):
 
         task = cat.CARE_TASKS[choice]
         was_done = cat.care_done_today(profile)
+        was_wary = cat.wary_active(profile)
+
+        # The two tasks that need the cat's cooperation are the two it
+        # holds back from. Food, water and the litter box happen whatever
+        # it thinks of you -- being wary never blocks care.
+        if task in ("pets", "play") and cat.needs_win_back(profile):
+            if not win_it_back(stdscr, profile):
+                continue
 
         if task == "food":
             summary = feed.play(stdscr, profile)
@@ -338,16 +485,30 @@ def board(stdscr, profile, play_slot, after_task):
         after_task(task, summary)
 
         if not was_done and cat.care_done_today(profile):
-            profile["fish"] = profile.get("fish", 0) + BOARD_BONUS
+            bonus = BOARD_BONUS
+            lines = ["Food, water, pets, play and a clean box.",
+                     "",
+                     "%s is delighted with you." % name]
+            title = "%s IS ALL SET" % name.upper()
+
+            if was_wary:
+                # A comeback day has to end WARMER than a normal day --
+                # this is exactly the moment a lapsed kid decides whether
+                # to come back tomorrow. Unconditional, and additive only.
+                cat.clear_wary(profile)
+                bonus += COMEBACK_BONUS
+                lines = ["%s missed you." % name,
+                         "",
+                         "Everything's looked after, and it's curled up",
+                         "on your feet like nothing ever happened."]
+                title = "WELCOME BACK"
+
+            profile["fish"] = profile.get("fish", 0) + bonus
             after_task("care-bonus", None)
             ui.celebrate(
                 stdscr,
-                ["Food, water, pets, play and a clean box.",
-                 "",
-                 "%s is delighted with you." % name,
-                 "",
-                 "+%d fish   --   everything's open now" % BOARD_BONUS],
-                title="%s IS ALL SET" % name.upper(),
+                lines + ["", "+%d fish   --   everything's open now" % bonus],
+                title=title,
                 art=kitty.art("overjoyed") if kitty else None,
             )
             return

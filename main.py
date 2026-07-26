@@ -16,7 +16,7 @@ import random
 import sys
 from datetime import date
 
-from core import profiles, badges, ui, lessons, adaptive, cat, engine, fx
+from core import profiles, badges, ui, lessons, adaptive, cat, engine, fx, shop
 from core.ui import (cp, center, safe_addstr, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_BADGE, C_DEFAULT)
 from modes import rocket, dino, platformer, memorize, care
@@ -477,13 +477,22 @@ def care_callout(stdscr, profile):
     if not kitty:
         return
     left = cat.tasks_left_today(profile)
-    if left:
+    if cat.wary_active(profile):
+        lines = _wrap("%s has been on its own a while. Go gently." % kitty.name)
+        pose = "wary"
+    elif left:
         lines = _wrap("%s would like %s." % (
             kitty.name, _sentence([cat.CARE_NEEDS[t] for t in left])))
         pose = cat.mood_pose(cat.mood(profile))
     else:
         lines = ["%s has everything it needs." % kitty.name, "Go and play!"]
         pose = "overjoyed"
+
+    # A reason to look in the shop, phrased as news rather than as a
+    # deadline: the stock rotates, but nothing in it ever expires.
+    feature = shop.featured_today(profile)
+    if feature is not None:
+        lines += [""] + _wrap("The shop has a %s today!" % feature["name"].lower())
 
     stdscr.erase()
     h, w = stdscr.getmaxyx()
@@ -515,7 +524,7 @@ def menu_cat_painter(profile, day):
         return None
     state = {"pose": "sit", "line": "Hi, %s!" % profile["name"], "ticks": 0}
 
-    def paint(win):
+    def paint(win, idx=0):
         h, w = win.getmaxyx()
         state["ticks"] += 1
         if state["ticks"] % POSE_TICKS == 0:
@@ -525,7 +534,9 @@ def menu_cat_painter(profile, day):
         # Two stopping cues, both warm and neither a wall. A cat that's
         # been alone a while is asleep and missing you; a cat that's been
         # played with is asleep because it's had a lovely day.
-        if day.get("free_play", 0) >= SLEEP_AFTER_ROUNDS:
+        if cat.wary_active(profile):
+            state["pose"], state["line"] = "wary", "..."
+        elif day.get("free_play", 0) >= SLEEP_AFTER_ROUNDS:
             state["pose"], state["line"] = "sleep", "*dreaming*"
         elif cat.mood(profile) == "missing":
             state["pose"], state["line"] = "sleep", "*curled up*"
@@ -538,12 +549,19 @@ def menu_cat_painter(profile, day):
         # The bubble sits three rows up, beside the short menu labels
         # rather than the long ones, and is capped so a long name can't
         # push it left into them.
-        line = state["line"][:BUBBLE_MAX]
-        bubble_w = len(line) + 4
-        bx = max(0, w - bubble_w - 2)
-        ui.speech_bubble(win, max(0, y - 3), bx, [line],
-                         cp(C_ACCENT), tail_x=max(1, bubble_w - 5))
         c.draw(win, y, x, pose)
+
+        # Everything they've bought, arranged beside them: the visible
+        # record of months of care, which is the whole point of decor.
+        dx = x - 2
+        for item in reversed(shop.owned_decor(profile)[-2:]):
+            art = item["art"]
+            dx -= max(len(row) for row in art) + 1
+            for i, row in enumerate(art):
+                # One row above the cat's feet: the bottom row belongs to
+                # ui.menu's footer, and decor must never sit on the text.
+                safe_addstr(win, y + art_h - len(art) + i - 1, dx, row,
+                            cp(C_PENDING, True))
 
         # A looked-after cat purrs. Wisps only, and only when everything
         # is full -- it's a reward for care, not ambient decoration.
@@ -552,7 +570,167 @@ def menu_cat_painter(profile, day):
         fx.tick(0.11)   # the menu's idle tick
         fx.draw(win)
 
+        # The bubble goes on last so wisps drift behind the words rather
+        # than through them.
+        line = state["line"][:BUBBLE_MAX]
+        bubble_w = len(line) + 4
+        ui.speech_bubble(win, max(0, y - 3), max(0, w - bubble_w - 2), [line],
+                         cp(C_ACCENT), tail_x=max(1, bubble_w - 5))
+
     return paint
+
+
+def _shop_painter(profile, kitty, items):
+    """The cat leaning over the counter with an opinion about everything."""
+    def paint(win, idx):
+        h, w = win.getmaxyx()
+        # Below ui.menu's footer row, so nothing lands on the title.
+        info = min(h - 9, 14)
+        safe_addstr(win, info, 4, "You have %d fish" % shop.fish(profile),
+                    cp(C_WARN, True))
+
+        inv = shop.inventory(profile)
+        owned = "%d toys   %d decor   %s litter" % (
+            len(inv["toys"]), len(inv["decor"]), inv["litter"])
+        safe_addstr(win, info + 1, 4, owned, cp(C_PENDING))
+
+        if not kitty:
+            return
+        item = items[idx] if idx < len(items) else None
+        line = item["says"] if item else "*tail flick*"
+        if item and item["id"] == kitty.favourite_treat:
+            line = "That's my favourite!"
+
+        pose = "pounce" if item and item["kind"] == shop.KIND_TOY else "sit"
+        art_w = kitty.width(pose)
+        x = max(0, w - art_w - 4)
+        y = max(0, h - kitty.height(pose) - 1)
+        bubble = line[:34]
+        bw = len(bubble) + 4
+        ui.speech_bubble(win, max(0, y - 3), max(0, w - bw - 2), [bubble],
+                         cp(C_ACCENT), tail_x=max(1, bw - 5))
+        kitty.draw(win, y, x, pose)
+    return paint
+
+
+def use_treat_screen(stdscr, all_profiles, profile):
+    """Arm a treat for the next game. The kid chooses when, always."""
+    kitty = cat.Cat.from_profile(profile)
+    while True:
+        treats = sorted(shop.inventory(profile)["treats"].items())
+        if not treats:
+            return
+        labels = []
+        for item_id, count in treats:
+            item = shop.BY_ID[item_id]
+            ready = shop.has_effect(profile, item["effect"])
+            labels.append("%-18s x%-2d  %s%s" % (
+                item["name"], count, shop.EFFECT_NAMES[item["effect"]],
+                "  (already ready)" if ready else ""))
+        labels.append("Back")
+
+        armed = shop.armed(profile)
+        choice = ui.menu(
+            stdscr,
+            "TREAT TIME",
+            labels,
+            subtitle=("ready to use: " + ", ".join(shop.EFFECT_NAMES[e] for e in armed)
+                      if armed else "pick one to save for your next game"),
+            footer="ENTER to use one   ESC to go back",
+        )
+        if choice == -1 or choice >= len(treats):
+            return
+
+        item = shop.BY_ID[treats[choice][0]]
+        effect = shop.activate(profile, item["id"])
+        if effect is None:
+            ui.message(stdscr,
+                       ["You've already got that one ready to go.", "",
+                        "Use it first -- no need to spend two."],
+                       title="ALREADY SAVED")
+            continue
+        profiles.save_all(all_profiles)
+        name = kitty.name if kitty else "Your cat"
+        ui.message(
+            stdscr,
+            ["%s wolfs down the %s." % (name, item["name"].lower()),
+             "",
+             "Ready for your next game: %s." % shop.EFFECT_BLURBS[effect]],
+            title="SAVED FOR LATER",
+            art=kitty.art("overjoyed") if kitty else None,
+        )
+
+
+def shop_screen(stdscr, all_profiles, profile):
+    """
+    Browsing is always free and never gated -- window shopping with no
+    fish is a perfectly good thing for a kid to do, and being told "come
+    back when you've earned it" is the pattern this game doesn't use.
+    """
+    kitty = cat.Cat.from_profile(profile)
+    while True:
+        items = shop.shelf(profile)
+        labels = []
+        for item in items:
+            ok, _ = shop.can_buy(profile, item["id"])
+            tag = "" if ok else "  (saving up)"
+            flag = " *" if shop.is_featured(profile, item["id"]) else "  "
+            labels.append("%s%-20s %4d fish%s" % (
+                flag, item["name"], item["price"], tag))
+
+        treats = shop.inventory(profile)["treats"]
+        extras = []
+        if treats:
+            extras.append("Use a treat (%d)" % sum(treats.values()))
+        extras.append("Done")
+
+        # ui.menu centres each label on its own, so a price list with
+        # ragged lengths visibly wobbles as you move down it.
+        width = max(len(l) for l in labels + extras)
+        labels = [l.ljust(width) for l in labels]
+        extras = [l.center(width) for l in extras]
+
+        choice = ui.menu(
+            stdscr,
+            "THE SHOP",
+            labels + extras,
+            subtitle="* today's pick   --   new things every week, and "
+                     "everything comes back",
+            footer="ENTER to buy   ESC to go back",
+            draw_extra=_shop_painter(profile, kitty, items),
+        )
+        if choice == -1 or choice >= len(labels) + len(extras) - 1:
+            return
+        if choice >= len(labels):
+            use_treat_screen(stdscr, all_profiles, profile)
+            continue
+
+        item = items[choice]
+        ok, reason = shop.can_buy(profile, item["id"])
+        if not ok:
+            # Never "you can't afford this". Always "here's how close".
+            ui.message(
+                stdscr,
+                [reason, "", "It'll still be here -- nothing in this shop",
+                 "ever goes away for good."],
+                title="MAYBE NEXT TIME",
+                art=kitty.art("sit") if kitty else None,
+            )
+            continue
+
+        if shop.buy(profile, item["id"]):
+            profiles.save_all(all_profiles)
+            name = kitty.name if kitty else "Your cat"
+            ui.celebrate(
+                stdscr,
+                ["%s: %s" % (item["name"], item["blurb"]),
+                 "",
+                 '"%s" -- %s' % (item["says"], name),
+                 "",
+                 "%d fish left" % shop.fish(profile)],
+                title="BOUGHT IT",
+                art=kitty.art("overjoyed") if kitty else None,
+            )
 
 
 def run_mode(stdscr, mode, profile):
@@ -606,6 +784,9 @@ def build_menu(profile, gated):
         note = ("after %s's cared for" % kitty.name) if gated else blurb
         entries.append(("%-18s(%s)" % (label, note), ("mode", (mod, key))))
 
+    # Never gated: browsing costs nothing and looking at things you're
+    # saving for is half the fun of saving for them.
+    entries.append(("The Shop", ("shop", None)))
     entries.append(("My Badges", ("badges", None)))
     entries.append(("My Stats", ("stats", None)))
     entries.append(("Switch player", ("switch", None)))
@@ -619,11 +800,25 @@ def main_menu(stdscr, all_profiles, profile):
     profiles.save_all(all_profiles)
 
     if first_today and profile["current_streak"] > 1:
-        ui.message(
-            stdscr,
-            ["Day %d in a row. Keep it going!" % profile["current_streak"]],
-            title="WELCOME BACK, %s" % profile["name"].upper(),
-        )
+        lines = ["Day %d in a row. Keep it going!" % profile["current_streak"]]
+        if profiles.streak_was_rescued(profile):
+            kitty = cat.Cat.from_profile(profile)
+            lines = [
+                "The %s litter kept things cosy while you were away," %
+                shop.inventory(profile)["litter"],
+                "so your %d-day streak is exactly where you left it." %
+                profile["current_streak"],
+                "",
+                "%s is pleased with your planning." %
+                (kitty.name if kitty else "Your cat"),
+            ]
+        ui.message(stdscr, lines,
+                   title="WELCOME BACK, %s" % profile["name"].upper())
+
+    # Latched once at login rather than recomputed all session, so doing
+    # one task doesn't make the cat flip back and forth.
+    if profile.get("cat") and cat.is_wary(profile):
+        cat.set_wary(profile, True)
     if fresh:
         celebrate_badges(stdscr, fresh)
     if not profile.get("cat"):
@@ -661,6 +856,9 @@ def main_menu(stdscr, all_profiles, profile):
             return "quit"
         if action == "switch":
             return "switch"
+        if action == "shop":
+            shop_screen(stdscr, all_profiles, profile)
+            continue
         if action == "badges":
             show_badges(stdscr, profile)
             continue

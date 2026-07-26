@@ -12,7 +12,7 @@ import curses
 import random
 import time
 
-from core import lessons, ui, engine, adaptive, fx
+from core import lessons, ui, engine, adaptive, fx, shop
 from core.ui import cp, safe_addstr, center, C_TITLE, C_WARN, C_CORRECT, C_WRONG, C_PENDING, C_ACCENT
 
 DINO_IDLE = [
@@ -87,6 +87,7 @@ def play(stdscr, profile):
     lives = 3
     chomp_until = 0.0
     flash_until = 0.0
+    saver_until = 0.0
     sess = engine.Session()
     sess.start_if_needed()
 
@@ -96,6 +97,13 @@ def play(stdscr, profile):
     curses.curs_set(0)
     stdscr.nodelay(True)
     fx.clear()
+
+    # Treats the kid chose to use before this run. Both are buffers: they
+    # forgive or reward, they never type anything for anybody.
+    combo_saver = shop.take_effect(profile, shop.EFFECT_COMBO_SAVER)
+    bonus_until = 0.0
+    if shop.take_effect(profile, shop.EFFECT_BONUS):
+        bonus_until = time.monotonic() + shop.BONUS_SECONDS
 
     running = True
     while running:
@@ -151,7 +159,10 @@ def play(stdscr, profile):
                 sess.word_done()
                 combo += 1
                 best_combo = max(best_combo, combo)
-                score += 1 + combo // 10
+                gained = 1 + combo // 10
+                if now < bonus_until:
+                    gained *= shop.BONUS_MULTIPLIER
+                score += gained
                 chomp_until = now + 0.12
                 fx.spawn("spark", match.row, int(match.x))
                 if combo and combo % 10 == 0:
@@ -162,7 +173,11 @@ def play(stdscr, profile):
                 # against that key -- there's no other expected char here.
                 missed = min(letters, key=lambda L: L.x, default=None)
                 sess.keystroke(False, ch=missed.ch if missed else None)
-                combo = 0
+                if combo and combo_saver:
+                    combo_saver = False   # the catnip cookie, spent
+                    saver_until = now + 1.2
+                else:
+                    combo = 0
                 flash_until = now + 0.15
 
         # --- draw ---
@@ -172,6 +187,11 @@ def play(stdscr, profile):
         safe_addstr(stdscr, 1, 18, "Combo x%-4d" % combo, cp(C_ACCENT, True))
         safe_addstr(stdscr, 1, 32, "Lives " + "<3 " * max(0, lives), cp(C_WRONG, True))
         safe_addstr(stdscr, 1, max(48, w - 22), "Acc %5.1f%%" % sess.accuracy, cp(C_PENDING))
+        if now < bonus_until:
+            center(stdscr, 2, "BONUS ROUND -- double score for %.0fs"
+                   % (bonus_until - now), cp(C_WARN, True))
+        elif now < saver_until:
+            center(stdscr, 2, "combo saved!", cp(C_ACCENT, True))
 
         art = DINO_CHOMP if now < chomp_until else DINO_IDLE
         dino_attr = cp(C_WRONG, True) if now < flash_until else cp(C_CORRECT, True)

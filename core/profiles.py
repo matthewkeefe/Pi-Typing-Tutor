@@ -9,7 +9,7 @@ import os
 import tempfile
 from datetime import date, timedelta
 
-from core import adaptive
+from core import adaptive, shop
 
 DATA_DIR = os.environ.get(
     "TYPING_TUTOR_DATA",
@@ -47,8 +47,12 @@ def _blank_profile(name):
         # existed get offered the hatch on their next login.
         "cat": {},
         # Earned by volume typed, never by hitting a score. Spendable in
-        # the Phase 5 shop; additive-only, never taken away.
+        # the shop; additive-only, never taken away.
         "fish": 0,
+        "inventory": {"toys": [], "treats": {}, "litter": "basic", "decor": []},
+        # Treat effects armed but not yet used. Survives a restart, so
+        # quitting never wastes one.
+        "active_effects": {},
     }
 
 
@@ -96,6 +100,11 @@ def get_or_create(profiles, name):
     return profiles[name]
 
 
+def streak_was_rescued(profile, today=None):
+    """True if the litter tier covered a missed day at today's login."""
+    return profile.get("streak_rescued") == (today or date.today()).isoformat()
+
+
 def touch_day(profile):
     """
     Call once per session start. Updates daily streak.
@@ -111,9 +120,16 @@ def touch_day(profile):
             last_d = date.fromisoformat(last)
         except ValueError:
             last_d = None
-        if last_d == today - timedelta(days=1):
+        gap = (today - last_d).days if last_d else None
+        # Streak insurance: the litter tier was bought ahead of time, so a
+        # covered gap keeps the streak. Protection, not pardon -- and it
+        # only ever preserves, it can never subtract.
+        covered = gap is not None and 2 <= gap <= 1 + shop.litter_coverage(profile)
+        if gap == 1 or covered:
             profile["current_streak"] += 1
-        elif last_d is None or last_d < today - timedelta(days=1):
+            if covered:
+                profile["streak_rescued"] = today.isoformat()
+        else:
             profile["current_streak"] = 1
     else:
         profile["current_streak"] = 1

@@ -169,10 +169,11 @@ def menu(stdscr, title, options, subtitle=None, footer=None, art=None,
     Arrow-key menu. Returns the selected index, or -1 if the user
     backs out with q / ESC.
 
-    `draw_extra(win)` is called after the options each frame; passing it
-    switches the loop to non-blocking so something can animate (the cat on
-    the main menu) without input ever going sluggish. Without it the loop
-    blocks on getch exactly as it always did.
+    `draw_extra(win, idx)` is called after the options each frame with the
+    highlighted index; passing it switches the loop to non-blocking so
+    something can animate (the cat on the main menu, or the cat's opinion
+    of the shop item you're looking at) without input ever going
+    sluggish. Without it the loop blocks on getch exactly as it always did.
 
     `option_icons` is an optional per-option `(text, attr)` drawn just left
     of the label in its own colour -- the cat glyphs in the profile picker.
@@ -210,7 +211,7 @@ def menu(stdscr, title, options, subtitle=None, footer=None, art=None,
             foot = footer or "up/down to move   ENTER to pick   q to go back"
             center(stdscr, min(h - 2, top + len(options) + 2), foot, cp(C_PENDING))
             if draw_extra:
-                draw_extra(stdscr)
+                draw_extra(stdscr, idx)
             stdscr.refresh()
 
             key = stdscr.getch()
