@@ -347,6 +347,7 @@ data/passages.txt     your own memorize content
 data/words.txt        curated kid-appropriate word list (see its header)
 data/quiz.txt         your own quiz questions -- swap in a spelling list
 tools/build_words.py  regenerates data/words.txt from curated vocabulary
+tools/simulate.py     simulated playtest: personas vs the real engine
 tests/                stdlib unittest suite for the non-curses code
 ```
 
@@ -359,6 +360,28 @@ to offer — Alphabet Soup uses it below twelve unlocked letters. Keep it cheap;
 it runs every time the menu is drawn. Modes without the hook are always shown.
 
 Run the tests with `python3 -m unittest discover -s tests`.
+
+### Simulated playtest
+
+`tools/simulate.py` plays the game as synthetic kids — 10 wpm hunt-and-peck, a
+beginner with good form but no range beyond the home row, and on up to a fluent
+40 wpm — and reports when each one reaches the gates that matter.
+
+```bash
+python3 tools/simulate.py                 # all personas, one year
+python3 tools/simulate.py --detail        # per-persona milestone tables
+python3 tools/simulate.py --keys          # per-key ceiling vs the mastery bar
+```
+
+It drives the real `core/adaptive.py`, growth rules and fish economy, so a
+"never" in its output is the shipping code's behaviour rather than a model's.
+The personas themselves are estimates and are meant to be argued with — a
+finding that holds across all of them is worth acting on, one that depends on a
+single persona's numbers is a hypothesis.
+
+It answers pacing and reachability, which is exactly what a real playtest can't:
+nobody runs a 75-day session with a child. It says nothing about how anything
+*feels*, which is exactly what a real playtest is for.
 
 ## The adaptive engine
 
