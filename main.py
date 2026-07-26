@@ -19,13 +19,16 @@ from datetime import date
 from core import profiles, badges, ui, lessons, adaptive, cat, engine, fx, shop
 from core.ui import (cp, center, safe_addstr, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_BADGE, C_DEFAULT)
-from modes import rocket, dino, platformer, memorize, care
+from modes import rocket, dino, platformer, memorize, care, yarn
 
 # The free-play arcade: (module, history name, label, blurb).
+# play_slot builds the care board's Play choices from this same list, so a
+# mode added here shows up in both places.
 ARCADE = [
     (rocket, "rocket", "Rocket Builder", "levels, build a ship"),
     (dino, "dino", "Dino Chomp", "endless, high score"),
     (platformer, "platform", "Platform Jumper", "accuracy, don't fall"),
+    (yarn, "yarn", "Yarn Chase", "accuracy, nothing to lose"),
     (memorize, "memorize", "Memorize", "learn it by heart"),
 ]
 
@@ -338,6 +341,8 @@ def show_stats(stdscr, profile):
         ("Dino high score", "%d" % profile["dino_high_score"]),
         ("Platform streak", "%d (perfect runs: %d)" % (profile["platformer_best_streak"],
                                                        profile["platformer_perfect_runs"])),
+        ("Yarn streak", "%d (perfect rounds: %d)" % (profile["yarn_best_streak"],
+                                                     profile["yarn_perfect_rounds"])),
         ("Memorized", "%d passages" % profile["memorize_completions"]),
         ("Badges", "%d of %d" % (len(profile["badges"]), len(badges.BADGES))),
     ]

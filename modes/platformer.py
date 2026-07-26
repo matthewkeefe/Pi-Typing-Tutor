@@ -13,7 +13,7 @@ perfect-run badge.
 import curses
 import random
 
-from core import lessons, ui, engine, fx, shop
+from core import cat, lessons, ui, engine, fx, shop
 from core.ui import cp, safe_addstr, center, C_TITLE, C_WARN, C_CORRECT, C_WRONG, C_PENDING, C_ACCENT
 
 RUN_LENGTH = 10
@@ -24,6 +24,30 @@ VISIBLE = 5
 HERO = [" o ", "/|\\", "/ \\"]
 HERO_JUMP = ["\\o/", " | ", "/ \\"]
 HERO_FALL = ["\\o/", "/|\\", " ^ "]
+
+# The jumper has three frames. A kid with a hatched cat gets their own cat
+# in the role; anyone else keeps the stick figure, so legacy profiles are
+# untouched. Poses come from the existing set -- no new art needed.
+CAT_POSES = {"stand": "sit", "leap": "pounce", "fall": "wary"}
+LEGACY_ART = {"stand": HERO, "leap": HERO_JUMP, "fall": HERO_FALL}
+
+
+def _draw_hero(win, kitty, pose, hx, hy):
+    """
+    Paint the jumper with its feet on (hy, hx).
+
+    Both art paths anchor by their bottom row, which is what keeps the cat
+    standing on the platform rather than sunk into it: the stick figure is
+    3 rows, a kitten 4 and an adult 5.
+    """
+    x = int(hx)
+    if kitty is not None:
+        rows = kitty.height(CAT_POSES[pose])
+        kitty.draw(win, int(hy) - rows + 1, x, CAT_POSES[pose])
+        return
+    art = LEGACY_ART[pose]
+    for i, line in enumerate(art):
+        safe_addstr(win, int(hy) + i - (len(art) - 1), x, line, cp(C_WARN, True))
 
 
 def _platform_height(i, seed):
@@ -38,7 +62,8 @@ def _layout(stdscr):
     return h, w, base_row
 
 
-def _draw_world(stdscr, words, current, seed, hero_pos, hero_art, lives, streak, typed, msg=None):
+def _draw_world(stdscr, words, current, seed, hero_pos, hero_pose, kitty,
+                lives, streak, typed, msg=None):
     h, w, base_row = _layout(stdscr)
     stdscr.erase()
 
@@ -70,9 +95,7 @@ def _draw_world(stdscr, words, current, seed, hero_pos, hero_art, lives, streak,
         ui.draw_typing_line(stdscr, 5, x, target, typed)
 
     hx, hy = hero_pos
-    art = hero_art
-    for i, line in enumerate(art):
-        safe_addstr(stdscr, int(hy) + i - 2, int(hx), line, cp(C_WARN, True))
+    _draw_hero(stdscr, kitty, hero_pose, hx, hy)
 
     safe_addstr(stdscr, base_row + 2, 0, "~" * max(0, w - 1), cp(C_PENDING))
 
@@ -104,10 +127,10 @@ def _animate_jump(stdscr, words, frm, to, seed, lives, streak, draw):
         y = y0 + (y1 - y0) * t - 6 * (t - t * t) * 2  # parabolic arc
         if s == steps:
             fx.spawn("puff", y1 + 1, x1)   # dust on a stuck landing
-        draw((x, y), HERO_JUMP if s < steps else HERO)
+        draw((x, y), "leap" if s < steps else "stand")
         curses.napms(28)
     for _ in range(6):                      # let the dust settle
-        draw((x1, y1), HERO)
+        draw((x1, y1), "stand")
         curses.napms(28)
 
 
@@ -116,7 +139,7 @@ def _animate_fall(stdscr, pos, draw):
     x, y = pos
     while y < base_row + 3:
         y += 1.4
-        draw((x, y), HERO_FALL)
+        draw((x, y), "fall")
         curses.napms(35)
 
 
@@ -124,6 +147,7 @@ def play(stdscr, profile):
     level = profile.get("rocket_level", 1)
     seed = random.randrange(10000)
     words = [lessons.random_word(level) for _ in range(RUN_LENGTH + 1)]
+    kitty = cat.Cat.from_profile(profile)   # None for a profile with no cat
 
     current = 0
     typed = ""
@@ -140,8 +164,9 @@ def play(stdscr, profile):
     while current < RUN_LENGTH and lives > 0:
         pos = _hero_anchor(current, current, seed, stdscr)
 
-        def draw(p=pos, art=HERO, msg=None):
-            _draw_world(stdscr, words, current, seed, p, art, lives, streak, typed, msg)
+        def draw(p=pos, pose="stand", msg=None):
+            _draw_world(stdscr, words, current, seed, p, pose, kitty,
+                        lives, streak, typed, msg)
 
         draw()
         key = stdscr.getch()
@@ -164,8 +189,9 @@ def play(stdscr, profile):
                 best_streak = max(best_streak, streak)
                 nxt = current + 1
 
-                def jdraw(p, art):
-                    _draw_world(stdscr, words, current, seed, p, art, lives, streak, "")
+                def jdraw(p, pose):
+                    _draw_world(stdscr, words, current, seed, p, pose, kitty,
+                                lives, streak, "")
 
                 _animate_jump(stdscr, words, current, nxt, seed, lives, streak, jdraw)
                 current = nxt
@@ -175,7 +201,7 @@ def play(stdscr, profile):
             # kid keeps their footing, and the word carries on. It never
             # types the letter for them.
             sess.keystroke(False)
-            draw(pos, HERO_JUMP, "The treat saved you! Keep going.")
+            draw(pos, "leap", "The treat saved you! Keep going.")
             curses.napms(700)
         else:
             sess.keystroke(False)
@@ -183,8 +209,9 @@ def play(stdscr, profile):
             lives -= 1
             streak = 0
 
-            def fdraw(p, art):
-                _draw_world(stdscr, words, current, seed, p, art, lives, streak, typed,
+            def fdraw(p, pose):
+                _draw_world(stdscr, words, current, seed, p, pose, kitty,
+                            lives, streak, typed,
                             msg="You slipped! It was '%s'" % target)
 
             _animate_fall(stdscr, pos, fdraw)
@@ -226,6 +253,12 @@ def play(stdscr, profile):
         "Accuracy: %.1f%%" % sess.accuracy,
         "WPM: %.1f" % sess.wpm,
     ]
-    ui.message(stdscr, lines, title=title, art=HERO_JUMP)
+    # The kid's cat takes the bow too -- overjoyed if the run went well,
+    # sitting if it didn't. Same fallback as the jumper itself.
+    if kitty is not None:
+        art = kitty.art("overjoyed" if cleared >= RUN_LENGTH else "sit")
+    else:
+        art = HERO_JUMP
+    ui.message(stdscr, lines, title=title, art=art)
 
     return sess.summary()

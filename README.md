@@ -114,7 +114,16 @@ individual keys.
 and your character leaps to the next one. **There is no backspace here on purpose** —
 one wrong key and you fall, losing a life and your streak. Ten platforms per run;
 clear it without falling for the perfect-run badge. This is the mode that teaches
-"get it right the first time," which is what actually raises WPM long-term.
+"get it right the first time," which is what actually raises WPM long-term. Your
+cat is the jumper, drawn from its own genes.
+
+**Yarn Chase** — the same accuracy lesson with nothing at stake. Type a word
+perfectly and your cat pounces on the toy; miss a letter and the toy just wiggles
+away, resetting the streak and nothing else. No lives, no falls, and the round is
+always ten flicks however it goes. It exists for the kid who freezes under Platform
+Jumper's pressure: same habit, taught by making a good word feel good instead of
+making a bad one cost something. Words come from the adaptive engine, so it drills
+weak keys. Owning a toy from the shop changes what your cat chases.
 
 **Memorize** — repetition with progressive occlusion. Straight repetition just teaches
 copying, so each successful pass blanks out more of the text:
@@ -249,16 +258,20 @@ core/fx.py            ASCII particle effects: sparks, confetti, splashes, purrs
 core/shop.py          item catalog, weekly rotation, fish economy, treat effects
 modes/rocket.py       level-based ship builder
 modes/dino.py         endless letter chomper
-modes/platformer.py   accuracy-focused jumper
+modes/platformer.py   accuracy-focused jumper (the cat is the jumper)
+modes/yarn.py         accuracy drill with no lives and nothing to lose
 modes/memorize.py     progressive-occlusion repetition drill
 modes/feed.py         the Food task: adaptive weak-key drill, as fishing
 modes/care.py         care board + the Water / Pets / Clean activities
 data/passages.txt     your own memorize content
+data/words.txt        curated kid-appropriate word list (see its header)
+tools/build_words.py  regenerates data/words.txt from curated vocabulary
 tests/                stdlib unittest suite for the non-curses code
 ```
 
 Adding a mode means writing a `play(stdscr, profile)` that returns a session
-summary dict and adding it to the list in `main_menu()`.
+summary dict and adding it to `ARCADE` in `main.py`. That one list feeds both
+the free-play menu and the care board's Play choices.
 
 Run the tests with `python3 -m unittest discover -s tests`.
 
@@ -405,4 +418,5 @@ no guilt messaging anywhere in this game, by design.
 - **Rocket pass threshold** — `modes/rocket.py`, the `85.0` in `play()`.
 - **Dino difficulty ramp** — `modes/dino.py`, `_speed_for()` and `_spawn_gap()`.
 - **Platformer harshness** — `modes/platformer.py`, `RUN_LENGTH` and `LIVES`.
+- **Yarn Chase length** — `modes/yarn.py`, `FLICKS`.
 - **Occlusion ramp** — `modes/memorize.py`, `REVEAL_SCHEDULE`.
