@@ -1,0 +1,111 @@
+# Pi Typing Tutor -- Whisker Quiz questions
+#
+# The cat asks; the kid types the answer. This file is meant to be edited.
+# Delete everything below and put your own spelling list in -- that's the
+# point of it. Same idea as data/passages.txt.
+#
+# FORMAT
+#   question|answer               one per line
+#   question|answer1;answer2      any listed answer is accepted
+#
+#   Blank lines and lines starting with '#' are ignored. Matching is
+#   case-insensitive and ignores leading/trailing spaces, so "Cat" and
+#   " cat " both match "cat". Malformed lines (no '|', empty question, or
+#   empty answer) are skipped rather than crashing the mode. An empty file
+#   simply hides Whisker Quiz from the menu.
+#
+# WRITING GOOD ONES
+#   Keep answers SHORT -- one or two words. The kid is typing them, and a
+#   long answer turns a quiz into a transcription drill, which is what
+#   every other mode already does.
+#
+#   Prefer answers a kid can reason out over ones they must already know.
+#   Add alternates generously; "8" and "eight" are both right, and being
+#   marked wrong on a technicality is the fastest way to lose a 7-year-old.
+#
+# THIS DEFAULT SET
+#   A starting point, not a curriculum: cat facts, animals, everyday
+#   science, numbers, and a little spelling. Roughly ages 6-11. Swap it
+#   out for whatever your kid is actually working on this term.
+
+# --- cats, because there is one on the screen ---------------------------
+How many legs does a cat have?|4;four
+What sound does a cat make?|meow
+What is a baby cat called?|kitten
+What do cats drink from a bowl?|milk;water
+What do you call a cat's foot?|paw
+Cats have whiskers on their what?|face;nose;cheeks
+What is a cat's fur coat made of?|hair;fur
+What do cats cough up after grooming?|hairball;hairballs
+A group of kittens is called a what?|litter
+What do cats sharpen on a scratching post?|claws;their claws
+Do cats sleep a lot? yes or no|yes
+What colour are most cats' eyes at birth?|blue
+
+# --- other animals ------------------------------------------------------
+What animal says woof?|dog
+What is a baby dog called?|puppy
+What animal has a very long neck?|giraffe
+What is the biggest animal in the ocean?|whale;blue whale
+How many legs does a spider have?|8;eight
+What do bees make?|honey
+What animal hops and carries a pouch?|kangaroo
+Which bird cannot fly but swims well?|penguin
+What is a baby sheep called?|lamb
+What animal changes colour to hide?|chameleon
+Which animal is known as man's best friend?|dog
+What do you call an animal that eats only plants?|herbivore
+
+# --- the world around you -----------------------------------------------
+What do we call frozen water?|ice
+What falls from clouds when it rains?|rain;water
+How many days are in a week?|7;seven
+How many months are in a year?|12;twelve
+What season comes after winter?|spring
+What do plants need from the sun?|light;sunlight;energy
+What colour do you get mixing red and yellow?|orange
+What colour do you get mixing blue and yellow?|green
+How many colours are in a rainbow?|7;seven
+What is the closest star to Earth?|sun;the sun
+How many planets are in our solar system?|8;eight
+What do we breathe in to stay alive?|oxygen;air
+What is frozen rain called?|hail;snow
+Which planet do we live on?|earth
+
+# --- numbers and counting -----------------------------------------------
+What is 2 plus 2?|4;four
+What is 5 plus 5?|10;ten
+What is 10 minus 3?|7;seven
+What is 3 times 3?|9;nine
+What is half of 10?|5;five
+How many sides does a triangle have?|3;three
+How many sides does a square have?|4;four
+How many minutes are in an hour?|60;sixty
+How many hours are in a day?|24
+What number comes after 99?|100;one hundred
+
+# --- words and spelling -------------------------------------------------
+Spell the word for a large grey animal with a trunk|elephant
+Spell the colour of grass|green
+Spell the word for the day after Monday|tuesday
+What is the opposite of hot?|cold
+What is the opposite of big?|small;little;tiny
+What is the opposite of up?|down
+What is the opposite of happy?|sad
+What do you call a word that means the same as another?|synonym
+How many letters are in the alphabet?|26
+What is the first letter of the alphabet?|a
+What is the last letter of the alphabet?|z
+Spell the word for something you read with pages|book
+
+# --- everyday things ----------------------------------------------------
+What do you use to write on paper?|pencil;pen
+Where do you go to learn?|school
+What do you call the meal you eat in the morning?|breakfast
+What do you wear on your feet?|shoes;socks
+What do you use to unlock a door?|key
+What do you call a house made of ice?|igloo
+What do you use to cut paper?|scissors
+Where do books live in a school?|library
+What do you call frozen dessert on a hot day?|ice cream
+What do you ride with two wheels and pedals?|bike;bicycle

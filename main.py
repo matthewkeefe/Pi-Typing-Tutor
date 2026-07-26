@@ -19,7 +19,7 @@ from datetime import date
 from core import profiles, badges, ui, lessons, adaptive, cat, engine, fx, shop
 from core.ui import (cp, center, safe_addstr, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_BADGE, C_DEFAULT)
-from modes import rocket, dino, platformer, memorize, care, yarn
+from modes import rocket, dino, platformer, memorize, care, yarn, soup
 
 # The free-play arcade: (module, history name, label, blurb).
 # play_slot builds the care board's Play choices from this same list, so a
@@ -29,6 +29,7 @@ ARCADE = [
     (dino, "dino", "Dino Chomp", "endless, high score"),
     (platformer, "platform", "Platform Jumper", "accuracy, don't fall"),
     (yarn, "yarn", "Yarn Chase", "accuracy, nothing to lose"),
+    (soup, "soup", "Alphabet Soup", "make words, beat the cooling"),
     (memorize, "memorize", "Memorize", "learn it by heart"),
 ]
 
@@ -749,6 +750,26 @@ def run_mode(stdscr, mode, profile):
         return None
 
 
+def arcade_for(profile):
+    """
+    The modes this kid can actually play right now.
+
+    A mode may define `available(profile)` to hide itself. Alphabet Soup
+    uses it while the unlocked alphabet is too small to build a bowl worth
+    solving; Whisker Quiz will use it for an empty quiz file. A mode
+    without the hook is always available, so nothing else has to change.
+
+    Hiding rather than showing-and-refusing is deliberate: a locked door a
+    kid can see is a door they'll rattle, and this game doesn't do that.
+    """
+    out = []
+    for entry in ARCADE:
+        check = getattr(entry[0], "available", None)
+        if check is None or check(profile):
+            out.append(entry)
+    return out
+
+
 def play_slot(stdscr, profile):
     """
     The Play care task. The cat wants to play; which game is entirely the
@@ -757,16 +778,17 @@ def play_slot(stdscr, profile):
     """
     kitty = cat.Cat.from_profile(profile)
     name = kitty.name if kitty else "your cat"
+    arcade = arcade_for(profile)
     choice = ui.menu(
         stdscr,
         "P L A Y   T I M E",
-        ["%-18s(%s)" % (label, blurb) for _, _, label, blurb in ARCADE]
+        ["%-18s(%s)" % (label, blurb) for _, _, label, blurb in arcade]
         + ["Never mind"],
         subtitle="%s wants to play -- you pick" % name,
     )
-    if choice == -1 or choice >= len(ARCADE):
+    if choice == -1 or choice >= len(arcade):
         return None
-    return run_mode(stdscr, ARCADE[choice][0], profile)
+    return run_mode(stdscr, arcade[choice][0], profile)
 
 
 def build_menu(profile, gated):
@@ -785,7 +807,7 @@ def build_menu(profile, gated):
                 else "%d thing%s to do" % (len(left), "" if len(left) == 1 else "s"))
         entries.append(("%-18s(%s)" % ("Care for " + kitty.name, note), ("care", None)))
 
-    for mod, key, label, blurb in ARCADE:
+    for mod, key, label, blurb in arcade_for(profile):
         note = ("after %s's cared for" % kitty.name) if gated else blurb
         entries.append(("%-18s(%s)" % (label, note), ("mode", (mod, key))))
 

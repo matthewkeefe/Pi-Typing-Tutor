@@ -125,6 +125,15 @@ Jumper's pressure: same habit, taught by making a good word feel good instead of
 making a bad one cost something. Words come from the adaptive engine, so it drills
 weak keys. Owning a toy from the shop changes what your cat chases.
 
+**Alphabet Soup** — the only mode that trains word *construction* rather than
+copying. Six or seven letters float in the cat's bowl; make as many words as you
+can before the soup cools. Every other mode shows you what to type — this one
+makes you find it, which is spelling and vocabulary. A word that isn't in the list
+gets a slurp and nothing else: no lost time, no lost score, no lost fish, because
+guessing is how you find words. The soup cooling ends the round and scores it;
+there's no way to lose, only to stop. Appears once you've unlocked twelve letters —
+below that the word list can't build a bowl worth solving.
+
 **Memorize** — repetition with progressive occlusion. Straight repetition just teaches
 copying, so each successful pass blanks out more of the text:
 
@@ -142,6 +151,24 @@ doesn't fail you, it just gets counted so you can see how much scaffolding was n
 
 Passages come from `data/passages.txt` (one per line). Put their spelling list,
 times tables, or a poem in there and it becomes the drill.
+
+### Load your own quiz
+
+`data/quiz.txt` works the same way, one `question|answer` per line:
+
+```
+What is 2 plus 2?|4;four
+What is the capital of France?|paris
+```
+
+Semicolons separate answers that should all be accepted — `4;four` so a kid isn't
+marked wrong for spelling out a number. Matching ignores case and surrounding
+spaces. Lines starting with `#` are comments, malformed lines are skipped rather
+than crashing, and an empty file just hides the quiz.
+
+The shipped set is a starting point, not a curriculum: delete it and drop in this
+week's spelling words. Keep answers to a word or two — a long answer turns a quiz
+back into a transcription drill, which every other mode already does.
 
 ---
 
@@ -256,15 +283,18 @@ core/badges.py        22 badge definitions and award logic
 core/ui.py            curses helpers: colors, menus, per-char typing display
 core/fx.py            ASCII particle effects: sparks, confetti, splashes, purrs
 core/shop.py          item catalog, weekly rotation, fish economy, treat effects
+core/wordlist.py      shared word-list access: loading, filtering, bowl building
 modes/rocket.py       level-based ship builder
 modes/dino.py         endless letter chomper
 modes/platformer.py   accuracy-focused jumper (the cat is the jumper)
 modes/yarn.py         accuracy drill with no lives and nothing to lose
+modes/soup.py         anagram word-builder (unlock-gated at 12 letters)
 modes/memorize.py     progressive-occlusion repetition drill
 modes/feed.py         the Food task: adaptive weak-key drill, as fishing
 modes/care.py         care board + the Water / Pets / Clean activities
 data/passages.txt     your own memorize content
 data/words.txt        curated kid-appropriate word list (see its header)
+data/quiz.txt         your own quiz questions -- swap in a spelling list
 tools/build_words.py  regenerates data/words.txt from curated vocabulary
 tests/                stdlib unittest suite for the non-curses code
 ```
@@ -272,6 +302,10 @@ tests/                stdlib unittest suite for the non-curses code
 Adding a mode means writing a `play(stdscr, profile)` that returns a session
 summary dict and adding it to `ARCADE` in `main.py`. That one list feeds both
 the free-play menu and the care board's Play choices.
+
+A mode can also define `available(profile)` to hide itself when it has nothing
+to offer — Alphabet Soup uses it below twelve unlocked letters. Keep it cheap;
+it runs every time the menu is drawn. Modes without the hook are always shown.
 
 Run the tests with `python3 -m unittest discover -s tests`.
 
