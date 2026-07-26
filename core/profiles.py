@@ -39,6 +39,8 @@ def _blank_profile(name):
         "yarn_best_streak": 0,
         "yarn_perfect_rounds": 0,
         "pantry_high_score": 0,
+        "mystery_opened": 0,
+        "quiz_right": 0,
         "soup_words_found": 0,
         "soup_best_score": 0,
         "soup_most_words": 0,

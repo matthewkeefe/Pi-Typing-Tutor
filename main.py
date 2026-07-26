@@ -19,7 +19,8 @@ from datetime import date
 from core import profiles, badges, ui, lessons, adaptive, cat, engine, fx, shop
 from core.ui import (cp, center, safe_addstr, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_BADGE, C_DEFAULT)
-from modes import rocket, dino, platformer, memorize, care, yarn, soup, pantry
+from modes import (rocket, dino, platformer, memorize, care, yarn, soup,
+                   pantry, mystery, quiz)
 
 # The free-play arcade: (module, history name, label, blurb).
 # play_slot builds the care board's Play choices from this same list, so a
@@ -31,6 +32,8 @@ ARCADE = [
     (yarn, "yarn", "Yarn Chase", "accuracy, nothing to lose"),
     (pantry, "pantry", "Pantry Defense", "endless, defend the bowl"),
     (soup, "soup", "Alphabet Soup", "make words, beat the cooling"),
+    (mystery, "mystery", "Mystery Word", "guess it, then spell it"),
+    (quiz, "quiz", "Whisker Quiz", "the cat asks, you answer"),
     (memorize, "memorize", "Memorize", "learn it by heart"),
 ]
 
@@ -346,6 +349,8 @@ def show_stats(stdscr, profile):
         ("Yarn streak", "%d (perfect rounds: %d)" % (profile["yarn_best_streak"],
                                                      profile["yarn_perfect_rounds"])),
         ("Pantry high score", "%d" % profile["pantry_high_score"]),
+        ("Quiz answers right", "%d" % profile["quiz_right"]),
+        ("Dishes opened", "%d" % profile["mystery_opened"]),
         ("Soup words found", "%d (best score: %d)" % (profile["soup_words_found"],
                                                       profile["soup_best_score"])),
         ("Memorized", "%d passages" % profile["memorize_completions"]),

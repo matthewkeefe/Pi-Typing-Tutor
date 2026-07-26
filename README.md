@@ -97,7 +97,7 @@ Details are in the kernel-symbol table further down. Worth doing only if Path A'
 
 ---
 
-## The four modes
+## The modes
 
 **Rocket Builder** — level based. Seven lesson levels, seven rocket parts. Clear a
 level's word drill at 85%+ accuracy and the next part gets welded onto the ship:
@@ -140,6 +140,21 @@ gets a slurp and nothing else: no lost time, no lost score, no lost fish, becaus
 guessing is how you find words. The soup cooling ends the round and scores it;
 there's no way to lose, only to stop. Appears once you've unlocked twelve letters —
 below that the word list can't build a bowl worth solving.
+
+**Mystery Word** — the cat paws at a covered dish with a word written under
+the lid. Guess letters to reveal it, and once enough is showing, spell the whole
+thing out to open the dish. Every other mode shows you the target and asks you to
+copy it; this one hides it, so you're producing a word from partial information —
+spelling from deduction, which nothing else here trains. Six wrong guesses ends
+the round with a "maybe tomorrow" and the dish still covered. Nothing is lost, and
+nothing gets drawn on a gallows.
+
+**Whisker Quiz** — the cat asks a question, you type the answer. Reading
+comprehension plus typing, and the questions live in `data/quiz.txt`, so it becomes
+whatever you put in there. Matching forgives case and spacing, and a question can
+list several right answers so nobody is marked wrong for typing "eight" instead of
+"8". Miss one and the cat shows you the answer and asks it again later. No lives.
+Delete the file and the mode quietly disappears.
 
 **Memorize** — repetition with progressive occlusion. Straight repetition just teaches
 copying, so each successful pass blanks out more of the text:
@@ -297,6 +312,8 @@ modes/platformer.py   accuracy-focused jumper (the cat is the jumper)
 modes/yarn.py         accuracy drill with no lives and nothing to lose
 modes/pantry.py       word arcade: shoo mice off the food bowl
 modes/soup.py         anagram word-builder (unlock-gated at 12 letters)
+modes/mystery.py      hidden-word deduction, then spell it out
+modes/quiz.py         type-the-answer trivia from data/quiz.txt
 modes/memorize.py     progressive-occlusion repetition drill
 modes/feed.py         the Food task: adaptive weak-key drill, as fishing
 modes/care.py         care board + the Water / Pets / Clean activities
@@ -463,4 +480,6 @@ no guilt messaging anywhere in this game, by design.
 - **Yarn Chase length** — `modes/yarn.py`, `FLICKS`.
 - **Pantry difficulty ramp** — `modes/pantry.py`, `speed_for()`, `spawn_gap()`,
   `max_on_screen()` and `max_word_len()`.
+- **Mystery Word patience** — `modes/mystery.py`, `MAX_WRONG` and `REVEAL_SHARE`.
+- **Quiz round length** — `modes/quiz.py`, `ROUND` and `RETRY_LIMIT`.
 - **Occlusion ramp** — `modes/memorize.py`, `REVEAL_SCHEDULE`.
