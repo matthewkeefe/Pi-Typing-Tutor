@@ -156,6 +156,14 @@ list several right answers so nobody is marked wrong for typing "eight" instead 
 "8". Miss one and the cat shows you the answer and asks it again later. No lives.
 Delete the file and the mode quietly disappears.
 
+**Ghost Race** — you race a *recording*, never a person. Finish a track and your
+splits are saved; a sibling can then race that ghost on their own afternoon, and
+you can race theirs, or your own best. Nobody waits for a turn on the keyboard.
+You always choose who to race — the game never ranks anyone, never shows a
+leaderboard, and never volunteers who is faster. Nothing is at stake: no fish, no
+streak, no gauges. Ghosts only ever record an improvement, so what you're chasing
+is somebody's best rather than their last.
+
 **Memorize** — repetition with progressive occlusion. Straight repetition just teaches
 copying, so each successful pass blanks out more of the text:
 
@@ -306,6 +314,7 @@ core/ui.py            curses helpers: colors, menus, per-char typing display
 core/fx.py            ASCII particle effects: sparks, confetti, splashes, purrs
 core/shop.py          item catalog, weekly rotation, fish economy, treat effects
 core/wordlist.py      shared word-list access: loading, filtering, bowl building
+core/ghosts.py        race recordings: shared tracks, splits, bounded storage
 modes/rocket.py       level-based ship builder
 modes/dino.py         endless letter chomper
 modes/platformer.py   accuracy-focused jumper (the cat is the jumper)
@@ -314,6 +323,7 @@ modes/pantry.py       word arcade: shoo mice off the food bowl
 modes/soup.py         anagram word-builder (unlock-gated at 12 letters)
 modes/mystery.py      hidden-word deduction, then spell it out
 modes/quiz.py         type-the-answer trivia from data/quiz.txt
+modes/race.py         asynchronous ghost racing on shared tracks
 modes/memorize.py     progressive-occlusion repetition drill
 modes/feed.py         the Food task: adaptive weak-key drill, as fishing
 modes/care.py         care board + the Water / Pets / Clean activities
@@ -482,4 +492,5 @@ no guilt messaging anywhere in this game, by design.
   `max_on_screen()` and `max_word_len()`.
 - **Mystery Word patience** — `modes/mystery.py`, `MAX_WRONG` and `REVEAL_SHARE`.
 - **Quiz round length** — `modes/quiz.py`, `ROUND` and `RETRY_LIMIT`.
+- **How many ghosts are kept** — `core/ghosts.py`, `MAX_GHOSTS`.
 - **Occlusion ramp** — `modes/memorize.py`, `REVEAL_SCHEDULE`.

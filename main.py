@@ -20,7 +20,7 @@ from core import profiles, badges, ui, lessons, adaptive, cat, engine, fx, shop
 from core.ui import (cp, center, safe_addstr, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_BADGE, C_DEFAULT)
 from modes import (rocket, dino, platformer, memorize, care, yarn, soup,
-                   pantry, mystery, quiz)
+                   pantry, mystery, quiz, race)
 
 # The free-play arcade: (module, history name, label, blurb).
 # play_slot builds the care board's Play choices from this same list, so a
@@ -34,6 +34,7 @@ ARCADE = [
     (soup, "soup", "Alphabet Soup", "make words, beat the cooling"),
     (mystery, "mystery", "Mystery Word", "guess it, then spell it"),
     (quiz, "quiz", "Whisker Quiz", "the cat asks, you answer"),
+    (race, "race", "Ghost Race", "race a recorded run"),
     (memorize, "memorize", "Memorize", "learn it by heart"),
 ]
 
