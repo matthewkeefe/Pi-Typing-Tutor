@@ -1,0 +1,262 @@
+# Typing Tutor
+
+An offline, gamified typing tutor for kids. Pure Python 3 standard library —
+no pip installs, no network, nothing to phone home. Built to be the only thing
+a Raspberry Pi 5 does.
+
+```
+python3 main.py
+```
+
+Needs an 80x24 terminal minimum. Save data lands in `./data/profiles.json`;
+override the location with `$TYPING_TUTOR_DATA`.
+
+---
+
+## Testing on a Mac
+
+It runs as-is. macOS ships Python 3 with `curses` built in, so there's nothing
+to install:
+
+```bash
+cd typing_tutor
+python3 main.py
+```
+
+Terminal.app opens at exactly 80x24, which is the minimum, so you're fine —
+but if you've shrunk the window, the app now says so and redraws live while you
+drag it bigger. `Cmd -` shrinks the font if you'd rather gain room that way.
+
+Two things worth knowing:
+
+- **Delete vs Backspace.** macOS sends `0x7F` where Linux consoles send `0x08`.
+  Both are handled, so backspace works the same in both places.
+- **Colors.** If everything comes out monochrome, your `TERM` is off. `echo $TERM`
+  should say `xterm-256color` in Terminal.app or iTerm2.
+
+The Mac and the Pi run identical code, so whatever you tune on the Mac —
+word lists, difficulty, passages — carries over unchanged.
+
+---
+
+## Getting to a single SD card
+
+The end state is one card you push into the Pi and it just goes. Two ways there.
+
+### Path A — Pi OS Lite + the installer (an evening)
+
+This is the one to do first, and it already meets your bar: wifi is off before
+Linux even boots, and turning it back on means editing the card on another
+machine.
+
+1. **On the Mac**, install Raspberry Pi Imager. Choose *Raspberry Pi OS Lite
+   (64-bit)*, pick your card, and in the gear menu set a hostname, enable SSH,
+   and create your own admin user. Write it.
+2. **Boot the Pi** with a keyboard, monitor, and an ethernet cable. Log in as
+   your admin user.
+3. **Copy this folder over** — over ethernet from the Mac:
+   ```bash
+   scp -r typing_tutor youruser@raspberrypi.local:~/
+   ```
+   Or just put it on the card's boot partition from the Mac and move it after.
+4. **Run the installer:**
+   ```bash
+   cd ~/typing_tutor
+   sudo ./install-pi.sh
+   sudo reboot
+   ```
+
+That card is now the finished product. It boots straight into the tutor, has no
+wifi, no Bluetooth, no shell prompt, and no reachable virtual terminals. Unplug
+the ethernet and hand it to the kids.
+
+**To duplicate or back up the card**, pull it and clone it on the Mac:
+
+```bash
+diskutil list                                  # find the card, e.g. /dev/disk4
+diskutil unmountDisk /dev/disk4
+sudo dd if=/dev/rdisk4 of=~/typing-tutor.img bs=4m status=progress
+```
+
+Note the `r` in `rdisk4` — the raw device is many times faster. Write it back to
+a fresh card with Raspberry Pi Imager's "Use custom" option. Now one card became
+as many as you have kids.
+
+### Path B — Buildroot (a weekend, only if you want the kernel-level lock)
+
+Buildroot outputs `output/images/sdcard.img` directly, which is the purest version
+of what you asked for: flash it, insert it, done, with no wireless code compiled
+into the kernel at all.
+
+The catch on a Mac is that Buildroot needs a Linux host. On Apple Silicon, run an
+arm64 Ubuntu VM (UTM, Lima, or Docker Desktop) — it's native, so it's fast. Build
+inside the VM, copy the `.img` out, and flash from the Mac.
+
+Details are in the kernel-symbol table further down. Worth doing only if Path A's
+"someone could re-edit the card" gap actually bothers you.
+
+---
+
+## The four modes
+
+**Rocket Builder** — level based. Seven lesson levels, seven rocket parts. Clear a
+level's word drill at 85%+ accuracy and the next part gets welded onto the ship:
+engine bell, fuel tanks, nose cone, fins, viewport, then fuel and ignition. Finish
+all seven and it launches off the top of the screen, then resets so they can build
+a faster one. Mistakes must be backspaced before you can continue.
+
+**Dino Chomp** — endless, score based. Letters drift in from the right; type one and
+the dino chomps the nearest match. Three lives, everything speeds up as the score
+climbs, combos multiply points. This is the mode that builds raw reaction speed on
+individual keys.
+
+**Platform Jumper** — accuracy focused. Each platform has a word. Type it perfectly
+and your character leaps to the next one. **There is no backspace here on purpose** —
+one wrong key and you fall, losing a life and your streak. Ten platforms per run;
+clear it without falling for the perfect-run badge. This is the mode that teaches
+"get it right the first time," which is what actually raises WPM long-term.
+
+**Memorize** — repetition with progressive occlusion. Straight repetition just teaches
+copying, so each successful pass blanks out more of the text:
+
+| Pass | Hidden |
+|------|--------|
+| 1    | 0%     |
+| 2    | 25%    |
+| 3    | 50%    |
+| 4    | 75%    |
+| 5    | 90%    |
+| 6    | 100%   |
+
+Finish the blind pass and it counts as memorized. `TAB` peeks for 1.5 seconds — it
+doesn't fail you, it just gets counted so you can see how much scaffolding was needed.
+
+Passages come from `data/passages.txt` (one per line). Put their spelling list,
+times tables, or a poem in there and it becomes the drill.
+
+---
+
+## Progression and badges
+
+Every profile tracks day streaks, total words, best WPM, best accuracy, and per-mode
+bests. 22 badges cover daily habit (3/7/30-day streaks), speed (15/25/40/60 WPM),
+accuracy, and per-mode milestones. New badges pop up immediately when earned —
+that immediate feedback is most of why kids come back.
+
+Multiple kids can share one device; each gets their own profile from the opening
+screen.
+
+---
+
+## Deploying to the Pi 5
+
+Two paths depending on how tamper-proof you need it.
+
+### Firmware-level wifi kill (what `install-pi.sh` does for you)
+
+For reference, these are the pieces the installer puts in place:
+
+```bash
+# applied by the firmware before Linux boots -- the radio never comes up
+echo "dtoverlay=disable-wifi" | sudo tee -a /boot/firmware/config.txt
+echo "dtoverlay=disable-bt"   | sudo tee -a /boot/firmware/config.txt
+
+# second layer: the driver modules can't load even if the overlay is removed
+sudo tee /etc/modprobe.d/no-wireless.conf <<'EOF2'
+blacklist brcmfmac
+blacklist brcmutil
+blacklist cfg80211
+blacklist btbcm
+blacklist hci_uart
+EOF2
+```
+
+Plus autologin on tty1 to an unprivileged `typist` user whose `.bash_profile`
+runs the tutor in a `while true` loop, and `NAutoVTs=1` so Ctrl+Alt+F2 through
+F6 don't exist. Quitting the app just restarts it; there is no shell to reach.
+
+### Kernel-level wifi removal — Buildroot
+
+This is the one where wifi isn't disabled, it *doesn't exist* in the kernel binary.
+
+```bash
+git clone https://gitlab.com/buildroot.org/buildroot.git
+cd buildroot
+ls configs/ | grep -i raspberrypi     # confirm the Pi 5 defconfig name
+make raspberrypi5_defconfig
+```
+
+**Packages** (`make menuconfig`):
+- `BR2_PACKAGE_PYTHON3` — the interpreter
+- `BR2_PACKAGE_NCURSES` plus the terminfo data, or curses won't initialize.
+  Setting `TERM=linux` on the console is the lightest option.
+
+**Kernel** (`make linux-menuconfig`) — turn these *off*:
+
+| Symbol | What it kills |
+|--------|---------------|
+| `CONFIG_WLAN` | master switch for all wireless LAN drivers |
+| `CONFIG_CFG80211` | the 802.11 configuration stack |
+| `CONFIG_MAC80211` | the softMAC stack |
+| `CONFIG_BRCMFMAC` | the Pi's Broadcom FullMAC wifi driver |
+| `CONFIG_BRCMUTIL` | its support library |
+| `CONFIG_BT` | the entire Bluetooth subsystem |
+
+Leave these *on* so you keep ethernet for maintenance:
+- `CONFIG_NET`
+- the Pi 5 ethernet driver. Note this differs from the Pi 4 — the Pi 5's NIC hangs
+  off the RP1 southbridge and uses the Cadence GEM driver (`CONFIG_MACB`), not the
+  `CONFIG_BCMGENET` driver you'd use on a Pi 4. Confirm against `dmesg | grep -i eth`
+  on a stock Pi 5 image before you strip anything.
+
+Also delete the wifi firmware blobs from the rootfs — with no driver they're inert,
+but there's no reason to ship them.
+
+**Boot straight into the app.** BusyBox inittab:
+
+```
+::sysinit:/bin/mount -t proc proc /proc
+::sysinit:/bin/mount -o remount,rw /
+::sysinit:/bin/mount -a
+tty1::respawn:/usr/bin/env TERM=linux TYPING_TUTOR_DATA=/data /usr/bin/python3 /opt/typing_tutor/main.py
+```
+
+`respawn` means quitting the app just restarts it — there's no shell to drop to.
+Do **not** add getty entries for tty2–tty6, or Ctrl+Alt+F2 hands them a prompt.
+
+**Storage layout.** Mount the rootfs read-only so a yanked power cord can't corrupt
+it, and give the save data its own small ext4 partition mounted at `/data`
+(hence `TYPING_TUTOR_DATA=/data` above). `profiles.py` already writes atomically
+via a temp file and `os.replace()`, and quarantines a corrupt save rather than
+crashing, so a bad shutdown mid-write costs at most the last session.
+
+---
+
+## Structure
+
+
+```
+main.py               entry point, profile picker, menu, stats, badge screens
+install-pi.sh         one-shot Pi lockdown + autostart installer
+core/lessons.py       7 progressive levels, home row -> sentences
+core/engine.py        shared WPM/accuracy measurement
+core/profiles.py      JSON save data, day streaks, atomic writes
+core/badges.py        22 badge definitions and award logic
+core/ui.py            curses helpers: colors, menus, per-char typing display
+modes/rocket.py       level-based ship builder
+modes/dino.py         endless letter chomper
+modes/platformer.py   accuracy-focused jumper
+modes/memorize.py     progressive-occlusion repetition drill
+data/passages.txt     your own memorize content
+```
+
+Adding a mode means writing a `play(stdscr, profile)` that returns a session
+summary dict and adding it to the list in `main_menu()`.
+
+## Tuning it for your kids
+
+- **Word lists** — `core/lessons.py`, the `LEVELS` list. Swap in their spelling words.
+- **Rocket pass threshold** — `modes/rocket.py`, the `85.0` in `play()`.
+- **Dino difficulty ramp** — `modes/dino.py`, `_speed_for()` and `_spawn_gap()`.
+- **Platformer harshness** — `modes/platformer.py`, `RUN_LENGTH` and `LIVES`.
+- **Occlusion ramp** — `modes/memorize.py`, `REVEAL_SCHEDULE`.

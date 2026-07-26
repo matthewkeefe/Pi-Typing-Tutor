@@ -1,0 +1,13 @@
+# Memorize-mode passages. One per line. Lines starting with # are ignored.
+# Delete this file to fall back to the built-in list.
+# Good candidates: spelling lists, poems, times tables, scripture,
+# state capitals, anything they need by heart for school.
+
+the quick brown fox jumps over the lazy dog
+practice does not make perfect practice makes permanent
+a journey of a thousand miles begins with a single step
+we hold these truths to be self evident
+i have not failed i have found ten thousand ways that do not work
+the mitochondria is the powerhouse of the cell
+seven times eight is fifty six
+in fourteen hundred ninety two columbus sailed the ocean blue
