@@ -17,7 +17,8 @@ import sys
 from datetime import date
 
 from core import (profiles, badges, ui, lessons, adaptive, cat, engine, fx,
-                  shop, scrapbook, milestones, rituals, contests)
+                  shop, scrapbook, milestones, rituals, contests,
+                  stasis, graduation)
 from core.ui import (cp, center, safe_addstr, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_BADGE, C_DEFAULT)
 from modes import (rocket, dino, platformer, memorize, care, yarn, soup,
@@ -104,7 +105,7 @@ def _egg_burst(stdscr, top, x):
     fx.clear()
 
 
-def hatch_ceremony(stdscr, profile):
+def hatch_ceremony(stdscr, profile, parent=None, keep_existing=False):
     """
     Profile creation, rewritten as the game's thesis: typing makes things
     happen. Their very first keystrokes crack the shell.
@@ -160,7 +161,7 @@ def hatch_ceremony(stdscr, profile):
     h, w = stdscr.getmaxyx()
     _egg_burst(stdscr, max(2, h // 2 - 7), max(0, (w - len(EGG[0])) // 2))
 
-    kitten = cat.Cat(seed, growth=0)
+    kitten = cat.Cat(seed, growth=0, parent=parent)
     ui.message(
         stdscr,
         ["A kitten!", "", kitten.describe("It")],
@@ -170,7 +171,15 @@ def hatch_ceremony(stdscr, profile):
 
     name = ui.ask_text(stdscr, "What will you call your cat?", maxlen=12)
     kitten.name = name or "Kitty"
-    profile["cat"] = cat.blank_cat_data(seed, kitten.name, date.today().isoformat())
+    data = cat.blank_cat_data(seed, kitten.name, date.today().isoformat(),
+                              parent=parent)
+    if keep_existing:
+        # The cat they already have is shelved into stasis, never
+        # replaced. add_cat is the only path that puts a second cat on a
+        # profile, and it never drops the first.
+        stasis.add_cat(profile, data)
+    else:
+        profile["cat"] = data
 
     stdscr.erase()
     h, w = stdscr.getmaxyx()
@@ -364,6 +373,20 @@ def show_stats(stdscr, profile):
     # Growth, and what the next stage is waiting on. Shown as two plain
     # counts rather than a bar: the point is that it arrives on its own
     # schedule, not that there's a meter to fill.
+    # Graduation, but only once it's plausibly near. Before that it is
+    # noise, and worse, it turns the whole game into a progress bar
+    # pointed at one number (#34).
+    if graduation.worth_showing(profile):
+        green, total, median, goal = graduation.progress(profile)
+        if graduation.graduated(profile):
+            rows.append(("Graduated", "yes -- %s" % profile["graduated"]))
+        else:
+            rows.append(("Letters at speed", "%d of %d" % (green, total)))
+            rows.append(("Recent pace", "-- of %.0f wpm" % goal
+                         if median is None
+                         else "%.0f of %.0f wpm" % (median, goal)))
+        rows.append(("", ""))
+
     kitty_stage = cat.Cat.from_profile(profile)
     if kitty_stage is not None:
         stage = cat.GROWTH_STAGES[cat.growth(profile)]
@@ -687,6 +710,111 @@ def growth_ceremony(stdscr, all_profiles, profile):
     profiles.save_all(all_profiles)
 
 
+def choose_cat_screen(stdscr, all_profiles, profile):
+    """
+    Pick which cat you're looking after.
+
+    A shelved cat is in stasis: locked exactly as you left it. It doesn't
+    get hungry, doesn't drift toward wary, doesn't age. Switching back
+    finds it precisely as it was, however long it's been -- so choosing
+    one is never abandoning the other, and there is nothing to feel bad
+    about either way.
+    """
+    while True:
+        book = stasis.shelf(profile)
+        if not book:
+            return
+        live = cat.Cat.from_profile(profile)
+        options = []
+        if live:
+            options.append("* %-14s (with you now)" % live.name)
+        for data in book:
+            kit = cat.Cat(data["seed"], data.get("name"),
+                          data.get("growth", 0), parent=data.get("parent"))
+            options.append("  %-14s (curled up, safe)" % kit.name)
+        options.append("Done".center(30))
+
+        choice = ui.menu(
+            stdscr,
+            "W H O   T O D A Y ?",
+            options,
+            subtitle="whoever waits, waits exactly as they are",
+            art=live.art("sit") if live else None,
+        )
+        first = 1 if live else 0
+        if choice == -1 or choice >= len(options) - 1:
+            return
+        if live and choice == 0:
+            continue
+        index = choice - first
+        woken = stasis.switch_to(profile, index)
+        if woken:
+            profiles.save_all(all_profiles)
+            kit = cat.Cat.from_profile(profile)
+            ui.message(
+                stdscr,
+                ["%s uncurls and stretches." % kit.name,
+                 "",
+                 "Exactly as you left them.",
+                 "",
+                 "Nothing changed while they were waiting."],
+                title="THERE YOU ARE",
+                art=kit.art("overjoyed"),
+            )
+
+
+def graduation_ceremony(stdscr, all_profiles, profile):
+    """
+    The win condition: every letter mastered AND 40+ wpm sustained.
+
+    An egg arrives, and the kid hatches a kitten the way they hatched
+    their first -- deliberately the same ceremony, because it rhymes.
+
+    The cat they already have does not go anywhere. It is shelved into
+    stasis, not replaced, not retired, not traded. A kid who has spent a
+    year with an animal that has their name on it is not being asked to
+    give it up for a newer one.
+    """
+    if not graduation.check(profile):
+        return
+    grown = cat.Cat.from_profile(profile)
+    if grown is None:
+        return
+
+    median = graduation.recent_wpm(profile)
+    ui.message(
+        stdscr,
+        ["Every letter on the keyboard. All twenty-six.",
+         "",
+         "And %.0f words a minute, again and again --" % (median or 0.0),
+         "not once, but every time you sit down.",
+         "",
+         "%s has something for you." % grown.name],
+        title="YOU CAN TYPE",
+        art=grown.art("overjoyed"),
+    )
+
+    # Same hatch the game opened with. It is theirs to name, and their
+    # first cat is standing right there while it happens.
+    data = hatch_ceremony(stdscr, profile, parent=grown.seed,
+                          keep_existing=True)
+    graduation.mark_graduated(profile)
+    profiles.save_all(all_profiles)
+
+    kit = cat.Cat.from_profile(profile)
+    ui.message(
+        stdscr,
+        ["%s and %s." % (grown.name, kit.name),
+         "",
+         "Whoever you aren't looking after waits exactly",
+         "as they are -- nothing changes while they're curled up.",
+         "",
+         "Switch whenever you like."],
+        title="LOOK WHAT YOU CAN TEACH",
+        art=kit.art("sit"),
+    )
+
+
 def secret_ceremony(stdscr, all_profiles, profile):
     """
     The one thing the game never tells you about in advance.
@@ -777,8 +905,10 @@ def after_session(stdscr, all_profiles, profile, mode_name, summary):
     if fresh:
         celebrate_badges(stdscr, fresh)
     celebrate_milestones(stdscr, profile, milestones.check_new(profile))
-    # Last, so a stage-up lands after the letter that earned it.
+    # Last, so a stage-up lands after the letter that earned it, and
+    # graduation after the mastery that earned that.
     check_growth(stdscr, all_profiles, profile)
+    graduation_ceremony(stdscr, all_profiles, profile)
     profiles.save_all(all_profiles)
 
 
@@ -1293,6 +1423,8 @@ def build_menu(profile, gated):
 
     # Never gated: browsing costs nothing and looking at things you're
     # saving for is half the fun of saving for them.
+    if stasis.shelf(profile):
+        entries.append(("Choose a cat", ("choosecat", None)))
     entries.append(("The Shop", ("shop", None)))
     entries.append(("My Scrapbook", ("scrapbook", None)))
     entries.append(("My Badges", ("badges", None)))
@@ -1304,6 +1436,10 @@ def build_menu(profile, gated):
 
 def main_menu(stdscr, all_profiles, profile):
     first_today = profiles.touch_day(profile)
+    if first_today:
+        # Today counts against the cat actually being looked after; a
+        # shelved one is frozen and must not age (#33).
+        stasis.touch_active_day(profile)
     fresh = badges.check_new(profile)
     profiles.save_all(all_profiles)
     # A new day can be the day the cat grows, and a ceremony interrupted
@@ -1378,6 +1514,9 @@ def main_menu(stdscr, all_profiles, profile):
             continue
         if action == "scrapbook":
             scrapbook_screen(stdscr, profile)
+            continue
+        if action == "choosecat":
+            choose_cat_screen(stdscr, all_profiles, profile)
             continue
         if action == "badges":
             show_badges(stdscr, profile)

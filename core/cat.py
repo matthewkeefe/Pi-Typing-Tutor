@@ -231,7 +231,14 @@ def hours_since_anything(profile, now=None):
             seen = hours if seen is None else min(seen, hours)
     if seen is not None:
         return seen
-    hatched = _parse_when((profile.get("cat") or {}).get("hatched"))
+    # Falls back to the latest of "hatched" and "woke". A cat just out of
+    # stasis has no fresh care stamps, and reading its hatch date would
+    # call it neglected for time it spent frozen. Same lesson as Phase 3:
+    # an absence of timestamps is not evidence of absence.
+    data = profile.get("cat") or {}
+    marks = [_parse_when(data.get("hatched")), _parse_when(data.get("woke"))]
+    marks = [m for m in marks if m is not None]
+    hatched = max(marks) if marks else None
     if hatched is None:
         return None
     return max(0.0, (now - hatched).total_seconds() / 3600.0)
@@ -690,7 +697,10 @@ def earned_growth(profile):
     already exists. Stops at the first unmet threshold, so the stages
     always arrive in order.
     """
-    days = int((profile or {}).get("days_played", 0) or 0)
+    # The LIVE cat's own days, not the profile's. A shelved cat must not
+    # grow up while it is frozen (#33). Identical on a one-cat profile.
+    from core import stasis
+    days = stasis.days_active(profile or {})
     letters = len(adaptive.alphabet(profile or {}))
     stage = 0
     for s in range(1, len(GROWTH_STAGES)):
@@ -752,7 +762,8 @@ def growth_progress(profile):
     nxt = have + 1
     if nxt >= len(GROWTH_STAGES):
         return None
-    return (int((profile or {}).get("days_played", 0) or 0), GROWTH_DAYS[nxt],
+    from core import stasis
+    return (stasis.days_active(profile or {}), GROWTH_DAYS[nxt],
             len(adaptive.alphabet(profile or {})), GROWTH_LETTERS[nxt])
 
 # Ear shapes for the one-line profile glyph -- all three have to differ at
@@ -795,20 +806,28 @@ class Cat:
     """A rendered cat. Cheap to build -- make one per screen, not per frame."""
 
     def __init__(self, seed, name=None, growth=0, accessory=None,
-                 secret=False):
+                 secret=False, parent=None):
         self.seed = int(seed)
         self.name = name or "your cat"
         self.growth = growth
         self.accessory = accessory if accessory in ACCESSORIES else None
         self.secret = bool(secret)
+        self.parent = None if parent is None else int(parent)
 
-        self.fur = _gene(self.seed, "fur", FUR_NAMES)
+        # Family resemblance (#32). Colour and coat come from the parent
+        # when there is one, everything else from the kitten's own seed:
+        # colour reads as "these two are related", while temperament and
+        # shape read as "this is a different cat". A kitten that inherited
+        # everything would just be a copy with a new name.
+        family = self.seed if self.parent is None else self.parent
+        self.fur = _gene(family, "fur", FUR_NAMES)
+        self.colors = _gene(family, "colors", COLOR_COMBOS)
+
         self.eyes = _gene(self.seed, "eyes", EYES)
         self.ears = _gene(self.seed, "ears", EARS)
         self.build = _gene(self.seed, "build", BUILDS)
         self.tail = _gene(self.seed, "tail", TAILS)
         self.personality = _gene(self.seed, "personality", PERSONALITIES)
-        self.colors = _gene(self.seed, "colors", COLOR_COMBOS)
         # Own stream, per the Phase 2 convention -- adding this gene must
         # not repaint a single existing cat.
         self.marks = _gene(self.seed, "marks", MARKS)
@@ -823,7 +842,8 @@ class Cat:
             return None
         return cls(data["seed"], data.get("name"), data.get("growth", 0),
                    accessory=worn_accessory(profile),
-                   secret=secret_expressed(profile))
+                   secret=secret_expressed(profile),
+                   parent=data.get("parent"))
 
     # -- appearance --------------------------------------------------
 
@@ -1031,9 +1051,9 @@ def _hatch_care(now):
     return care
 
 
-def blank_cat_data(seed, name, today, growth=0, now=None):
+def blank_cat_data(seed, name, today, growth=0, now=None, parent=None):
     """The `cat` block as it lands in the profile (DESIGN 9.3)."""
-    return {
+    data = {
         "seed": seed,
         "name": name,
         "hatched": today,
@@ -1041,4 +1061,8 @@ def blank_cat_data(seed, name, today, growth=0, now=None):
         "growth": growth,
         "care": _hatch_care(now or datetime.now()),
         "wary": False,
+        "days_active": 0,
     }
+    if parent is not None:
+        data["parent"] = int(parent)
+    return data

@@ -236,6 +236,23 @@ Unfound items show as `? ? ?`. That says "there's more to find" and never "you
 missed it": nothing in the Scrapbook expires, and **nothing in it can ever be
 lost**. There is deliberately no code path that removes an entry.
 
+## Graduating, and the second cat
+
+The whole game points at one thing: arrive hunting and pecking at about 5 wpm,
+leave typing 40+ wpm on the full keyboard. Graduating needs both — every letter
+mastered **and** 40 wpm sustained across your last ten real sessions. Not a peak;
+the median, so one bad afternoon can't undo it and one lucky run can't fake it.
+
+Graduate and a kitten hatches — the same ceremony the game opened with, because it
+rhymes. It shares its parent's coat and colour so the two read as family, and gets
+its own eyes, ears, build and temperament so it isn't a copy with a new name.
+
+**Your first cat doesn't go anywhere.** It's never replaced, retired or traded. It
+goes into stasis: locked exactly as you left it. A shelved cat doesn't get hungry,
+doesn't drift toward wary, doesn't age. Come back a year later and it's precisely
+as it was — so choosing one is never abandoning the other, and there's exactly one
+daily loop however many cats you own.
+
 ## Contest cups
 
 Five cups — Beginner, Junior, Expert, Master, Champion — each judged on one
@@ -406,6 +423,8 @@ core/scrapbook.py     collection albums: fish species, gifts, derived pages
 core/milestones.py    the unspendable progression bar: totals -> earned items
 core/rituals.py       weekend crate, seasons, show-up gift escalation
 core/contests.py      the cup ladder: bars, ranks, entry throttle
+core/graduation.py    the win condition: every letter, at speed, every time
+core/stasis.py        shelved cats: locked, unchanging, waiting
 modes/rocket.py       level-based ship builder
 modes/dino.py         endless letter chomper
 modes/platformer.py   accuracy-focused jumper (the cat is the jumper)

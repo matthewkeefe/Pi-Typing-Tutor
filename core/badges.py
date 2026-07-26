@@ -89,6 +89,20 @@ BADGES = [
 ]
 
 
+def _graduated(profile):
+    from core import graduation
+    return graduation.graduated(profile)
+
+
+BADGES.append({
+    "id": "graduate",
+    "name": "Touch typist",
+    "desc": "every letter mastered, and 40 wpm every time you sit down",
+    "icon": "[*]",
+    "check": _graduated,
+})
+
+
 def check_new(profile):
     """Award any newly-earned badges. Returns the list of new ones."""
     earned = set(profile.get("badges", []))

@@ -542,6 +542,20 @@ of that span rather than against an adult benchmark, and
 `tools/simulate.py` walks the whole arc with synthetic kids to check it
 stays reachable. Graduation is what marks arriving.
 
+### 10.2 Stasis [Phase 9]
+
+A cat you aren't currently looking after is **locked**: status saved and
+not changed. It doesn't get hungry, drift toward wary, or age. In the
+game this is simply a magic; in `core/stasis.py` it is a timestamp shift
+applied on waking.
+
+It is what makes a second cat possible without the daily loop doubling --
+only the active cat is live -- and it lands on three existing principles
+rather than straining them: a cat in stasis cannot suffer (1), "saved and
+not changed" is earned-progress-never-decays restated as a mechanic (2),
+and coming back finds the cat exactly as you left it, which is reunion
+framing with nothing to forgive (6).
+
 ## 11. Open questions (future research candidates)
 
 - Optimal drill length for 8–11-year-olds (adult evidence says ~1h/day is

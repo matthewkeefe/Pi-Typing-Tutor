@@ -48,6 +48,7 @@ SPEED_WEIGHT = 0.6
 ACC_WEIGHT = 0.4
 ERR_CEILING = 0.5   # a 50%-wrong key scores zero on accuracy
 EMA_ALPHA = 0.3     # weight of the newest session in the moving average
+EMA_FULL_SAMPLES = 20   # hits before a session carries its full weight
 
 # --- two different questions, which used to share one answer ---------
 #
@@ -152,8 +153,24 @@ def _clamp(v, lo, hi):
     return lo if v < lo else hi if v > hi else v
 
 
-def _ema(old, new):
-    return (1.0 - EMA_ALPHA) * old + EMA_ALPHA * new
+def _ema(old, new, samples=None):
+    """
+    Recent-weighted average, weighted by how much the session saw.
+
+    Without the sample weighting, a session where a kid typed `m` twice
+    and missed once moved the stored rate exactly as far as one where
+    they typed it fifty times and missed twice. Rare letters therefore
+    carried a permanently noisy average sitting well above their true
+    error rate -- and since every letter has to go green for the win
+    condition, one rare letter could block graduation forever.
+
+    A session still counts, it just counts in proportion to what it
+    actually observed.
+    """
+    alpha = EMA_ALPHA
+    if samples is not None:
+        alpha *= min(1.0, max(0, samples) / float(EMA_FULL_SAMPLES))
+    return (1.0 - alpha) * old + alpha * new
 
 
 def confidence(entry):
@@ -307,10 +324,11 @@ def merge_keys(profile, session_keys):
             e = {"n": 0, "err": s_err, "ms": s_ms, "conf": 0.0}
             keys[ch] = e
         else:
-            e["err"] = _ema(e.get("err", 0.0), s_err)
+            e["err"] = _ema(e.get("err", 0.0), s_err, n)
             if s_ms is not None:
                 prev_ms = e.get("ms")
-                e["ms"] = s_ms if prev_ms is None else _ema(prev_ms, s_ms)
+                e["ms"] = (s_ms if prev_ms is None
+                           else _ema(prev_ms, s_ms, ms_n))
 
         e["n"] = e.get("n", 0) + n
         e["err"] = round(e["err"], 4)
