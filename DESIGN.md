@@ -526,6 +526,21 @@ Each phase is independently shippable; kids playtest after every one.
 8. **Long-horizon layers** [R2] — the Scrapbook collection albums, the
    contest ladder, milestone unlocks (dual progression), weekly/seasonal
    rituals, show-up gift escalation.
+9. **Graduation & the second kitten** — the win condition. Every letter
+   mastered *and* 40+ wpm sustained across the full keyboard earns a
+   second cat: a sibling, never a replacement and never an upgrade. The
+   care load must not double. This is the one deliberate exception to
+   "rewards are informational, not performance payments" (principle 4),
+   and it is framed as a graduation rather than a prize. Issues #31-#34.
+
+### 10.1 The success criteria [Phase 9]
+
+Stated plainly, because everything above is in service of it: **a kid
+arrives hunting and pecking at roughly 5 wpm and leaves touch-typing the
+full keyboard at 40+ wpm.** `core/adaptive.py` is tuned against both ends
+of that span rather than against an adult benchmark, and
+`tools/simulate.py` walks the whole arc with synthetic kids to check it
+stays reachable. Graduation is what marks arriving.
 
 ## 11. Open questions (future research candidates)
 
