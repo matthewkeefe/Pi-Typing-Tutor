@@ -12,10 +12,13 @@ Data lives in ./data/profiles.json (override with $TYPING_TUTOR_DATA).
 """
 
 import curses
+import random
 import sys
+from datetime import date
 
-from core import profiles, badges, ui, lessons, adaptive
-from core.ui import cp, center, safe_addstr, C_TITLE, C_WARN, C_CORRECT, C_PENDING, C_ACCENT, C_BADGE
+from core import profiles, badges, ui, lessons, adaptive, cat, engine
+from core.ui import (cp, center, safe_addstr, C_TITLE, C_WARN, C_CORRECT,
+                     C_PENDING, C_ACCENT, C_BADGE, C_DEFAULT)
 from modes import rocket, dino, platformer, memorize
 
 BANNER = [
@@ -36,6 +39,153 @@ TITLE_ART = [
 ]
 
 
+EGG = [
+    "   .---.   ",
+    "  /     \\  ",
+    " |       | ",
+    " |       | ",
+    "  \\     /  ",
+    "   '---'   ",
+]
+
+# Where the shell gives way, in order. Roughly a fissure down the middle
+# that branches as it goes -- the last one splits the egg in half.
+CRACKS = [
+    (2, 5, "\\"), (2, 6, "/"), (3, 5, "/"), (3, 4, "\\"),
+    (1, 5, "."), (4, 5, "V"), (2, 4, "_"), (3, 6, "_"),
+    (1, 4, "\\"), (1, 6, "/"), (4, 4, "\\"), (4, 6, "/"),
+]
+
+
+def _draw_egg(stdscr, top, x, cracks, attr, crack_attr):
+    rows = [list(r) for r in EGG]
+    hot = set()
+    for i, (ry, rx, ch) in enumerate(CRACKS[:cracks]):
+        rows[ry][rx] = ch
+        hot.add((ry, rx))
+    for ry, row in enumerate(rows):
+        safe_addstr(stdscr, top + ry, x, "".join(row), attr)
+        for rx in range(len(row)):
+            if (ry, rx) in hot:
+                safe_addstr(stdscr, top + ry, x + rx, row[rx], crack_attr)
+
+
+def _egg_burst(stdscr, top, x):
+    for step in range(4):
+        stdscr.erase()
+        ch = "*" if step < 2 else "."
+        for dy, dx in ((-1, 0), (1, 0), (0, -3), (0, 3),
+                       (-1, -3), (-1, 3), (1, -3), (1, 3)):
+            safe_addstr(stdscr, top + 3 + dy * (step + 1) // 2,
+                        x + 5 + dx * (step + 1), ch, cp(C_WARN, True))
+        center(stdscr, top + 3, "-" * (step + 1) * 2, cp(C_WARN, True))
+        stdscr.refresh()
+        curses.napms(100)
+
+
+def hatch_ceremony(stdscr, profile):
+    """
+    Profile creation, rewritten as the game's thesis: typing makes things
+    happen. Their very first keystrokes crack the shell.
+
+    It never traps a kid -- ESC skips straight to the reveal, wrong keys
+    only wobble the egg, and the cat is theirs either way. Siblings are
+    waiting for the keyboard, so the whole thing is well under a minute.
+    """
+    rng = random.Random()
+    seed = cat.new_seed(rng)
+    target = " ".join(rng.sample(lessons.get_level(1)["words"], 3))
+    typed = ""
+    wobble_until = 0
+    frame = 0
+
+    stdscr.nodelay(True)
+    try:
+        while len(typed) < len(target):
+            h, w = stdscr.getmaxyx()
+            top = max(2, h // 2 - 7)
+            sway = (0, 1, 0, -1)[(frame // 6) % 4]
+            if frame < wobble_until:
+                sway += 1 if frame % 2 else -1
+            x = max(0, (w - len(EGG[0])) // 2 + sway)
+
+            stdscr.erase()
+            center(stdscr, top - 1, "SOMETHING IS IN HERE", cp(C_TITLE, True))
+            cracks = int(len(CRACKS) * len(typed) / max(1, len(target)))
+            _draw_egg(stdscr, top, x, cracks, cp(C_DEFAULT, True), cp(C_WARN, True))
+
+            center(stdscr, top + 8, "Type this to crack the shell:", cp(C_PENDING))
+            tx = max(0, (w - len(target)) // 2)
+            ui.draw_typing_line(stdscr, top + 9, tx, target, typed)
+            center(stdscr, min(h - 2, top + 12), "ESC to skip ahead", cp(C_PENDING))
+            stdscr.refresh()
+
+            key = stdscr.getch()
+            if key == -1:
+                curses.napms(45)
+                frame += 1
+                continue
+            if engine.is_quit(key):
+                break
+            if not engine.is_typable(key):
+                continue
+            if chr(key) == target[len(typed)]:
+                typed += chr(key)
+            else:
+                wobble_until = frame + 8  # a miss rocks the egg, never hurts it
+    finally:
+        stdscr.nodelay(False)
+
+    h, w = stdscr.getmaxyx()
+    _egg_burst(stdscr, max(2, h // 2 - 7), max(0, (w - len(EGG[0])) // 2))
+
+    kitten = cat.Cat(seed, growth=0)
+    ui.message(
+        stdscr,
+        ["A kitten!", "", kitten.describe("It")],
+        title="IT HATCHED",
+        art=kitten.art("overjoyed", growth=0),
+    )
+
+    name = ui.ask_text(stdscr, "What will you call your cat?", maxlen=12)
+    kitten.name = name or "Kitty"
+    profile["cat"] = cat.blank_cat_data(seed, kitten.name, date.today().isoformat())
+
+    stdscr.erase()
+    h, w = stdscr.getmaxyx()
+    top = max(2, h // 2 - 4)
+    art_w = kitten.width("sit", 0)
+    cat_x = max(0, (w - art_w) // 2)
+    kitten.draw(stdscr, top + 3, cat_x, "sit", growth=0)
+
+    greeting = "Hi %s! I'm %s." % (profile["name"], kitten.name)
+    tail_x = 3
+    ui.speech_bubble(stdscr, top,
+                     max(0, min(w - len(greeting) - 4,
+                                cat_x + art_w // 2 - tail_x)),
+                     [greeting], cp(C_ACCENT, True), tail_x=tail_x)
+    center(stdscr, min(h - 2, top + 10), "press any key", cp(C_PENDING))
+    stdscr.refresh()
+    stdscr.getch()
+    return profile["cat"]
+
+
+def offer_hatch(stdscr, all_profiles, profile):
+    """
+    A save from before the cat existed. Offer, never impose -- and only
+    once per login, because nagging is the exact pattern we ruled out.
+    """
+    choice = ui.menu(
+        stdscr,
+        "There's an egg here with your name on it",
+        ["Hatch it!", "Not right now"],
+        subtitle="%s, do you want a cat?" % profile["name"],
+    )
+    if choice == 0:
+        hatch_ceremony(stdscr, profile)
+        profiles.save_all(all_profiles)
+
+
 def pick_profile(stdscr, all_profiles):
     while True:
         names = sorted(all_profiles.keys())
@@ -44,6 +194,14 @@ def pick_profile(stdscr, all_profiles):
             options.append("Delete a player")
         options.append("Quit")
 
+        # Cats double as profile icons -- on a shared device the glyph is
+        # how a kid spots their own row before they can read the names.
+        icons = []
+        for n in names:
+            c = cat.Cat.from_profile(all_profiles[n])
+            icons.append((c.glyph(), c.body_attr) if c else None)
+        icons += [None] * (len(options) - len(names))
+
         choice = ui.menu(
             stdscr,
             "Who's typing?",
@@ -51,6 +209,7 @@ def pick_profile(stdscr, all_profiles):
             subtitle="pick your name",
             art=TITLE_ART,
             footer="up/down to move   ENTER to pick",
+            option_icons=icons,
         )
         if choice == -1:
             return None
@@ -62,7 +221,9 @@ def pick_profile(stdscr, all_profiles):
         if picked == "+ New player":
             name = ui.ask_text(stdscr, "What's your name?", maxlen=14)
             if name:
-                profiles.get_or_create(all_profiles, name)
+                profile = profiles.get_or_create(all_profiles, name)
+                if not profile.get("cat"):
+                    hatch_ceremony(stdscr, profile)
                 profiles.save_all(all_profiles)
                 return name
         elif picked == "Delete a player":
@@ -242,6 +403,46 @@ def after_session(stdscr, all_profiles, profile, mode_name, summary):
         celebrate_badges(stdscr, fresh)
 
 
+POSE_TICKS = 36   # ~4s at the menu's 110ms idle tick
+BUBBLE_MAX = 14   # keeps the bubble clear of the centred menu labels
+
+
+def menu_cat_painter(profile):
+    """
+    The cat living in the corner of the menu. Returns a `draw_extra` for
+    ui.menu, or None for a profile with no cat -- in which case the menu
+    is exactly the menu it always was.
+    """
+    c = cat.Cat.from_profile(profile)
+    if c is None:
+        return None
+    state = {"pose": "sit", "line": "Hi, %s!" % profile["name"], "ticks": 0}
+
+    def paint(win):
+        h, w = win.getmaxyx()
+        state["ticks"] += 1
+        if state["ticks"] % POSE_TICKS == 0:
+            state["pose"] = c.next_idle()
+            state["line"] = c.says(state["pose"])
+
+        pose = state["pose"]
+        art_w, art_h = c.width(pose), c.height(pose)
+        x = max(0, w - art_w - 4)
+        y = max(0, h - art_h - 1)
+
+        # The bubble sits three rows up, beside the short menu labels
+        # rather than the long ones, and is capped so a long name can't
+        # push it left into them.
+        line = state["line"][:BUBBLE_MAX]
+        bubble_w = len(line) + 4
+        bx = max(0, w - bubble_w - 2)
+        ui.speech_bubble(win, max(0, y - 3), bx, [line],
+                         cp(C_ACCENT), tail_x=max(1, bubble_w - 5))
+        c.draw(win, y, x, pose)
+
+    return paint
+
+
 def main_menu(stdscr, all_profiles, profile):
     first_today = profiles.touch_day(profile)
     fresh = badges.check_new(profile)
@@ -255,6 +456,10 @@ def main_menu(stdscr, all_profiles, profile):
         )
     if fresh:
         celebrate_badges(stdscr, fresh)
+    if not profile.get("cat"):
+        offer_hatch(stdscr, all_profiles, profile)
+
+    paint_cat = menu_cat_painter(profile)
 
     while True:
         lvl = lessons.get_level(profile["rocket_level"])
@@ -276,6 +481,7 @@ def main_menu(stdscr, all_profiles, profile):
             ],
             subtitle=sub,
             art=TITLE_ART,
+            draw_extra=paint_cat,
         )
 
         if choice in (-1, 7):

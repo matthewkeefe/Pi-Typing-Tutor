@@ -241,6 +241,7 @@ install-pi.sh         one-shot Pi lockdown + autostart installer
 core/lessons.py       7 progressive levels, home row -> sentences
 core/engine.py        shared WPM/accuracy measurement + per-key capture
 core/adaptive.py      per-key confidence, letter unlocks, word generator
+core/cat.py           cat genetics from one seed, ASCII poses, idle behaviour
 core/profiles.py      JSON save data, day streaks, atomic writes
 core/badges.py        22 badge definitions and award logic
 core/ui.py            curses helpers: colors, menus, per-char typing display
@@ -279,6 +280,27 @@ Dino Chomp uses the same data to spawn the letters a kid is worst at.
 
 Old save files pick this up automatically — the profile gains `keys` and
 `alphabet` on first load.
+
+## The cat
+
+Making a new player hatches one. An egg wobbles on screen, the kid's first
+keystrokes crack it open, and out comes a kitten they get to name. ESC skips
+the drill at any point — the cat is theirs either way, because a kid should
+never be trapped in a ceremony. Saves made before the cat existed get offered
+a hatch on their next login, and can decline.
+
+The whole animal comes from one integer seed, so a cat costs four bytes of
+save data and is reconstructable forever. Fur, eyes, ears, build, tail,
+colours and personality are all drawn from that seed, and personality steers
+what the cat does when it's idling on the menu — a sleepy cat naps, a
+mischievous one pounces.
+
+Every trait is **lateral**: different, never better. There are no rare cats
+and no good genes. Siblings share this device and will absolutely compare,
+so there is nothing here for the game to rank.
+
+Cats double as profile icons — the little `(o.o)` face beside each name in
+the picker is that kid's own cat, in that cat's colours.
 
 ## Tuning it for your kids
 

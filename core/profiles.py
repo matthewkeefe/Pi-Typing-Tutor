@@ -43,6 +43,9 @@ def _blank_profile(name):
         # pass migrates saves written before it existed.
         "keys": {},  # {ch: {"n", "err", "ms", "conf"}}
         "alphabet": adaptive.START_ALPHABET,
+        # Empty until the kid hatches one; saves from before the cat
+        # existed get offered the hatch on their next login.
+        "cat": {},
     }
 
 
