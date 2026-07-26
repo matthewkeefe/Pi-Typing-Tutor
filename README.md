@@ -125,6 +125,13 @@ Jumper's pressure: same habit, taught by making a good word feel good instead of
 making a bad one cost something. Words come from the adaptive engine, so it drills
 weak keys. Owning a toy from the shop changes what your cat chases.
 
+**Pantry Defense** — endless, score based. Mice sneak in from the right, each
+carrying a word; type it and the cat swats them away. Let one reach the food bowl
+and it costs a life, three lives and the run is over. The stakes are score-only:
+a mouse that gets through never eats fish, never touches your streak, never undoes
+a day's care. Losing here should feel like losing a game, not like losing progress.
+Words come from the adaptive engine and get longer as your alphabet grows.
+
 **Alphabet Soup** — the only mode that trains word *construction* rather than
 copying. Six or seven letters float in the cat's bowl; make as many words as you
 can before the soup cools. Every other mode shows you what to type — this one
@@ -288,6 +295,7 @@ modes/rocket.py       level-based ship builder
 modes/dino.py         endless letter chomper
 modes/platformer.py   accuracy-focused jumper (the cat is the jumper)
 modes/yarn.py         accuracy drill with no lives and nothing to lose
+modes/pantry.py       word arcade: shoo mice off the food bowl
 modes/soup.py         anagram word-builder (unlock-gated at 12 letters)
 modes/memorize.py     progressive-occlusion repetition drill
 modes/feed.py         the Food task: adaptive weak-key drill, as fishing
@@ -453,4 +461,6 @@ no guilt messaging anywhere in this game, by design.
 - **Dino difficulty ramp** — `modes/dino.py`, `_speed_for()` and `_spawn_gap()`.
 - **Platformer harshness** — `modes/platformer.py`, `RUN_LENGTH` and `LIVES`.
 - **Yarn Chase length** — `modes/yarn.py`, `FLICKS`.
+- **Pantry difficulty ramp** — `modes/pantry.py`, `speed_for()`, `spawn_gap()`,
+  `max_on_screen()` and `max_word_len()`.
 - **Occlusion ramp** — `modes/memorize.py`, `REVEAL_SCHEDULE`.

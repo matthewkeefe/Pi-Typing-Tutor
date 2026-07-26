@@ -38,6 +38,7 @@ def _blank_profile(name):
         "platformer_perfect_runs": 0,
         "yarn_best_streak": 0,
         "yarn_perfect_rounds": 0,
+        "pantry_high_score": 0,
         "soup_words_found": 0,
         "soup_best_score": 0,
         "soup_most_words": 0,
