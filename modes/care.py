@@ -413,7 +413,12 @@ TASK_RUNNERS = {"water": water, "pets": pets, "clean": clean}
 
 
 def _board_painter(profile, kitty):
-    def paint(win):
+    # `idx` is the highlighted row, which this painter doesn't need -- but
+    # ui.menu passes it to every draw_extra, so the signature has to take
+    # it. Phase 5 added the argument for the shop painter and this one was
+    # never updated, which crashed the care board on entry for four
+    # phases. See tests/test_painters.py, which now checks all three.
+    def paint(win, idx=0):
         h, w = win.getmaxyx()
         levels = cat.gauges(profile)
         top = min(h - 6, 15)  # below ui.menu's footer row, not on top of it
