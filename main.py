@@ -411,21 +411,38 @@ def celebrate_badges(stdscr, new_badges):
 
 def announce_letters(stdscr, profile, letters):
     """
-    A new letter is information, not a prize: it says "the ones you had
-    are solid, here's the next one." No score, no payout.
+    New letters are information, not a prize: "the ones you had are
+    solid, here are the next ones." No score, no payout.
+
+    One popup for the whole batch. A strong session can be worth three
+    letters now, and three popups in a row would turn the best moment in
+    the game into something to click through.
+
+    The copy no longer says "every letter went green" -- that stopped
+    being true when unlocking moved to the accuracy gate. Green means
+    40 wpm and is the win condition; this is the gentler bar, and saying
+    otherwise would teach a kid the wrong thing about their own heatmap.
     """
-    for ch in letters:
-        ui.celebrate(
-            stdscr,
-            [
-                "Every letter you had went green,",
-                "so your keyboard just grew one more.",
-                "",
-                "%d of 26 letters unlocked" % len(adaptive.alphabet(profile)),
-            ],
-            "NEW LETTER: %s" % ch.upper(),
-            art=["", "   [ %s ]   " % ch.upper(), ""],
-        )
+    if not letters:
+        return
+    shown = " ".join(ch.upper() for ch in letters)
+    if len(letters) == 1:
+        title = "NEW LETTER: %s" % shown
+        lead = ["You've got the ones you had,",
+                "so your keyboard just grew."]
+    else:
+        title = "%d NEW LETTERS" % len(letters)
+        lead = ["You've got the ones you had, easily --",
+                "so your keyboard grew by %d." % len(letters)]
+
+    ui.celebrate(
+        stdscr,
+        lead + ["",
+                "%d of 26 letters unlocked"
+                % len(adaptive.alphabet(profile))],
+        title,
+        art=["", "   [ %s ]   " % shown, ""],
+    )
 
 
 def celebrate_tricks(stdscr, profile, letters):

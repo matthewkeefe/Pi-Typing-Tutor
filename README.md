@@ -398,8 +398,14 @@ under the modes rather than as a screen of its own:
   and pecking is typing correctly, just slowly, and there's no reason to withhold
   the alphabet from them until they get fast. **Green** is mastery: 40 wpm on
   that key, accurately. All 26 green is the win condition.
-- Kids start with six letters (`e n i t r l`). When all of them are *ready*,
-  exactly one new letter unlocks, down the English frequency list.
+- Kids start with six letters (`e n i t r l`). When all of them are *ready*, the
+  alphabet grows down the English frequency list — and **how fast is decided by
+  how well you're doing**. A scrappy session earns one letter; holding your whole
+  alphabet accurately earns two; holding it accurately *and* at the goal speed
+  earns three. Ability is the only throttle. The extras arrive before they've
+  been practised on purpose: a kid who demonstrably learns fast shouldn't wait a
+  session per letter, and if the bigger alphabet is too much their accuracy dips
+  and the next unlock simply doesn't come.
 - Drill words are pronounceable pseudo-words generated from an English bigram
   table, restricted to the unlocked letters, with the kid's weakest letter
   worked into every word.
@@ -415,7 +421,9 @@ letters a kid is worst at.
 These numbers were set with `tools/simulate.py`, not by guessing. The simulated
 5-wpm-to-40-wpm beginner unlocks their seventh letter on day 13, opens Alphabet
 Soup around day 53, has a grown-up cat by day 137, and finishes the alphabet on
-day 209 — with mastery arriving much later, which is the point.
+day 133 — with mastery arriving much later, which is the point. A fluent
+40 wpm typist has the whole alphabet inside a month; a kid who never gets past
+hunting and pecking still opens their seventh letter around day 60.
 
 Old save files pick this up automatically — the profile gains `keys` and
 `alphabet` on first load.

@@ -124,13 +124,48 @@ class TestMerge(unittest.TestCase):
         self.assertLess(p["keys"]["e"]["ms"], 500.0)
         self.assertGreater(p["keys"]["e"]["ms"], 200.0)
 
-    def test_one_letter_unlocks_when_everything_is_green(self):
+    def test_a_strong_session_unlocks_a_burst(self):
+        """
+        Ability is the only throttle. A kid holding their alphabet
+        accurately AND at the goal speed is handed the maximum; nothing
+        else -- not the calendar, not a per-session cap of one -- gets a
+        say in how fast they progress.
+        """
         p = blank_profile()
         out = adaptive.merge_keys(
             p, session_keys(adaptive.START_ALPHABET, 40, ms=170.0)
         )
+        self.assertEqual(len(out["unlocked"]), adaptive.BURST_MAX)
+        self.assertEqual(out["unlocked"][0], "s")
+        self.assertEqual(p["alphabet"],
+                         adaptive.START_ALPHABET + "".join(out["unlocked"]))
+
+    def test_a_scrappy_session_unlocks_exactly_one(self):
+        """Over the accuracy bar but not comfortably: progress, not a burst."""
+        p = blank_profile()
+        out = adaptive.merge_keys(
+            p, session_keys(adaptive.START_ALPHABET, 60, err_rate=0.12,
+                            ms=1500.0))
         self.assertEqual(out["unlocked"], ["s"])
-        self.assertEqual(p["alphabet"], adaptive.START_ALPHABET + "s")
+
+    def test_the_burst_scales_with_performance(self):
+        sizes = []
+        for err, ms in ((0.12, 1500.0), (0.02, 1500.0), (0.01, 200.0)):
+            p = blank_profile()
+            out = adaptive.merge_keys(
+                p, session_keys(adaptive.START_ALPHABET, 60, err_rate=err,
+                                ms=ms))
+            sizes.append(len(out["unlocked"]))
+        self.assertEqual(sizes, sorted(sizes))
+        self.assertEqual(sizes[0], 1)
+        self.assertEqual(sizes[-1], adaptive.BURST_MAX)
+
+    def test_the_burst_is_capped(self):
+        """Nobody is handed the whole deep end at once."""
+        p = blank_profile()
+        out = adaptive.merge_keys(
+            p, session_keys(adaptive.START_ALPHABET, 500, ms=100.0))
+        self.assertLessEqual(len(out["unlocked"]), adaptive.BURST_MAX)
 
     def test_one_weak_letter_blocks_the_unlock(self):
         """
@@ -155,7 +190,8 @@ class TestMerge(unittest.TestCase):
         slow = 12000.0 / 6.0        # about 6 wpm
         out = adaptive.merge_keys(
             p, session_keys(adaptive.START_ALPHABET, 60, ms=slow))
-        self.assertEqual(out["unlocked"], ["s"])
+        self.assertTrue(out["unlocked"], "a slow but accurate kid must progress")
+        self.assertEqual(out["unlocked"][0], "s")
         self.assertEqual(out["green"], [], "slow keys must not be mastered")
 
     def test_green_is_only_reported_on_the_way_up(self):
@@ -195,8 +231,8 @@ class TestFocusAndWeighting(unittest.TestCase):
         p = blank_profile()
         out = adaptive.merge_keys(
             p, session_keys(adaptive.START_ALPHABET, 60, ms=170.0))
-        self.assertEqual(out["unlocked"], ["s"])
-        self.assertEqual(adaptive.focus_letter(p), "s")
+        self.assertTrue(out["unlocked"])
+        self.assertIn(adaptive.focus_letter(p), out["unlocked"])
 
     def test_untyped_letters_sort_first(self):
         p = blank_profile()

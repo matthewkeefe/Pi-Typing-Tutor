@@ -62,6 +62,9 @@ for _ch in FAR:
     REACH[_ch] = 0.90
 
 
+WORDS_PER_DRILL = 18     # a care-board Feed drill
+
+
 def reach_cost(ch):
     """0.0 (resting under a finger) to 1.0 (worst reach)."""
     return REACH.get(ch.lower(), 0.6)
@@ -211,15 +214,23 @@ def simulate(persona, days=365, seed=7):
     practice = 0
     timeline = {"unlocks": {}, "green": {}, "stages": {}, "letters": []}
 
+    # The real game merges once per mode played, not once per day -- every
+    # after_session call folds that session in on its own. Batching a whole
+    # day into one merge silently capped progress at one letter a day,
+    # which is a property of the harness and not of the game.
+    drills_per_day = max(1, persona.words_per_day // WORDS_PER_DRILL)
+
     for day in range(1, days + 1):
         p["days_played"] = day
-        session = {}
         typed = 0
 
-        # generate_lesson only ever draws from unlocked letters, so a kid
-        # who stalls keeps drilling the same six for as long as it takes.
-        for _ in range(max(1, persona.words_per_day // 18)):
-            for word in adaptive.generate_lesson(p, 18, rng):
+        for _ in range(drills_per_day):
+            session = {}
+            # generate_lesson only ever draws from unlocked letters, so a
+            # kid who stalls keeps drilling the same few for as long as it
+            # takes -- and re-generating per drill means a letter unlocked
+            # mid-day starts appearing in the very next one.
+            for word in adaptive.generate_lesson(p, WORDS_PER_DRILL, rng):
                 for ch in word:
                     seen = exposure.get(ch, 0)
                     entry = session.setdefault(
@@ -234,18 +245,18 @@ def simulate(persona, days=365, seed=7):
                     practice += 1
                     typed += 1
 
-        before = set(adaptive.alphabet(p))
-        green_before = _green(p, before)
-        adaptive.merge_keys(p, session)
-        after = set(adaptive.alphabet(p))
+            before = set(adaptive.alphabet(p))
+            green_before = _green(p, before)
+            adaptive.merge_keys(p, session)
+            after = set(adaptive.alphabet(p))
 
-        for ch in sorted(after - before):
-            timeline["unlocks"][ch] = day
-        for ch in sorted(_green(p, after) - green_before):
-            timeline["green"].setdefault(ch, day)
+            for ch in sorted(after - before):
+                timeline["unlocks"][ch] = day
+            for ch in sorted(_green(p, after) - green_before):
+                timeline["green"].setdefault(ch, day)
 
         p["fish"] = p.get("fish", 0) + typed // 5
-        timeline["letters"].append(len(after))
+        timeline["letters"].append(len(adaptive.alphabet(p)))
 
         stage = cat.earned_growth(p)
         if stage > cat.growth(p):

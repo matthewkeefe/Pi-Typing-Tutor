@@ -80,6 +80,20 @@ MIN_SAMPLES = 20    # hits before a key can go green
 READY_SAMPLES = 40  # hits before the unlock gate will judge a key at all
 READY_ACC = 0.85    # get it right this often and you've earned a new letter
 
+# How many letters one session can be worth.
+#
+# Ability decides this, nothing else. A kid holding the whole of their
+# current alphabet at BURST_ACC gets a second letter, and one already
+# typing it at the goal speed gets a third -- their competence is the
+# only throttle, which is the point.
+#
+# The extras arrive before they've been practised, deliberately: a kid
+# who demonstrably learns fast shouldn't be made to wait a session per
+# letter. If the bigger alphabet turns out to be too much, their accuracy
+# drops and the next unlock simply doesn't come. It self-corrects.
+BURST_ACC = 0.95    # accuracy across the current alphabet for a 2nd letter
+BURST_MAX = 3       # ceiling per session, so nobody is handed the deep end
+
 MIN_WORD, MAX_WORD = 3, 7
 REAL_WORD_SHARE = 0.3   # the rest of a lesson is generated pseudo-words
 MAX_WORD_TRIES = 12     # walks to attempt before injecting the focus letter
@@ -228,6 +242,31 @@ def key_state(profile, ch):
     return "steady" if is_ready(entry) else "learning"
 
 
+def burst_size(profile):
+    """
+    How many letters this kid's current performance is worth, 1..BURST_MAX.
+
+    Reads the alphabet they already hold: how accurately they type it, and
+    how close to the goal speed. Both are ability, which is the only thing
+    allowed to gate the alphabet.
+    """
+    keys = profile.get("keys") or {}
+    entries = [keys.get(c) for c in alphabet(profile)]
+    entries = [e for e in entries if e and e.get("n", 0) >= READY_SAMPLES]
+    if not entries:
+        return 1
+
+    acc = sum(1.0 - e.get("err", 1.0) for e in entries) / len(entries)
+    timed = [e.get("ms") for e in entries if e.get("ms") is not None]
+
+    size = 1
+    if acc >= BURST_ACC:
+        size += 1
+    if timed and (sum(timed) / len(timed)) <= MASTER_MS:
+        size += 1
+    return min(BURST_MAX, size)
+
+
 def _next_letter(unlocked):
     for ch in FREQ_ORDER:
         if ch not in unlocked:
@@ -283,18 +322,23 @@ def merge_keys(profile, session_keys):
         ch for ch, e in keys.items() if is_green(e) and ch not in was_green
     )
 
-    # One letter per merge: the letter we just unlocked has no data, so
-    # it can't be ready, so the loop stops on its own. The cap is belt
-    # and braces against a future change making that untrue.
-    #
     # This asks `is_ready`, not `is_green`. Gating the next letter on
     # mastery meant gating it on the game's win condition, which no
     # beginner could clear -- and since every unlocked letter had to
     # clear it, one hard reach stalled a kid forever.
+    #
+    # A strong session is worth more than one letter. The check runs
+    # against the letters that have actually been typed, so the freshly
+    # granted ones don't veto their own siblings; ability is the throttle
+    # and nothing else is.
     unlocked = []
+    allowance = burst_size(profile)
     for _ in range(len(FREQ_ORDER)):
+        if len(unlocked) >= allowance:
+            break
         current = alphabet(profile)
-        if not all(is_ready(keys.get(c)) for c in current):
+        judged = [keys.get(c) for c in current if c not in unlocked]
+        if not all(is_ready(e) for e in judged):
             break
         nxt = _next_letter(current)
         if nxt is None:
