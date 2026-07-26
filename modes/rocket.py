@@ -11,7 +11,7 @@ grows upward in place instead of jumping around the screen.
 
 import curses
 
-from core import lessons, ui, engine
+from core import lessons, ui, engine, fx
 from core.ui import (cp, safe_addstr, center, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_FLAME, C_DEFAULT, C_WRONG)
 
@@ -151,6 +151,7 @@ def _launch_animation(stdscr, profile):
     x = max(0, (w - 14) // 2)
 
     stdscr.nodelay(True)
+    fx.clear()
     for step in range(h + len(ship) + 2):
         stdscr.erase()
         top = h - len(ship) - step
@@ -161,11 +162,16 @@ def _launch_animation(stdscr, profile):
             center(stdscr, h - 1, "%d..." % (4 - step), cp(C_WARN, True))
         else:
             center(stdscr, 0, "L I F T O F F !", cp(C_WARN, True))
+            # Exhaust pours out of the engine bell as the ship climbs.
+            fx.spawn("burst", top + len(ship), x + 7, n=3, scale=0.5)
+        fx.tick(0.09)
+        fx.draw(stdscr)
         stdscr.refresh()
         curses.napms(90)
         if stdscr.getch() == 27:
             break
     stdscr.nodelay(False)
+    fx.clear()
 
     ui.message(
         stdscr,

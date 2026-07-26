@@ -16,7 +16,7 @@ import random
 import sys
 from datetime import date
 
-from core import profiles, badges, ui, lessons, adaptive, cat, engine
+from core import profiles, badges, ui, lessons, adaptive, cat, engine, fx
 from core.ui import (cp, center, safe_addstr, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_BADGE, C_DEFAULT)
 from modes import rocket, dino, platformer, memorize, care
@@ -79,16 +79,17 @@ def _draw_egg(stdscr, top, x, cracks, attr, crack_attr):
 
 
 def _egg_burst(stdscr, top, x):
-    for step in range(4):
+    """The shell letting go, as particles rather than three canned frames."""
+    fx.clear()
+    fx.spawn("burst", top + 3, x + 5, n=26)
+    for _ in range(22):
         stdscr.erase()
-        ch = "*" if step < 2 else "."
-        for dy, dx in ((-1, 0), (1, 0), (0, -3), (0, 3),
-                       (-1, -3), (-1, 3), (1, -3), (1, 3)):
-            safe_addstr(stdscr, top + 3 + dy * (step + 1) // 2,
-                        x + 5 + dx * (step + 1), ch, cp(C_WARN, True))
-        center(stdscr, top + 3, "-" * (step + 1) * 2, cp(C_WARN, True))
+        center(stdscr, top + 3, "-" * 6, cp(C_WARN, True))
+        fx.tick(fx.FRAME)
+        fx.draw(stdscr)
         stdscr.refresh()
-        curses.napms(100)
+        curses.napms(33)
+    fx.clear()
 
 
 def hatch_ceremony(stdscr, profile):
@@ -364,10 +365,10 @@ def show_stats(stdscr, profile):
 
 def celebrate_badges(stdscr, new_badges):
     for b in new_badges:
-        ui.message(
+        ui.celebrate(
             stdscr,
             [b["name"], "", b["desc"]],
-            title="NEW BADGE UNLOCKED",
+            "NEW BADGE UNLOCKED",
             art=["", "    " + b["icon"] + "    ", ""],
         )
 
@@ -378,7 +379,7 @@ def announce_letters(stdscr, profile, letters):
     are solid, here's the next one." No score, no payout.
     """
     for ch in letters:
-        ui.message(
+        ui.celebrate(
             stdscr,
             [
                 "Every letter you had went green,",
@@ -386,7 +387,7 @@ def announce_letters(stdscr, profile, letters):
                 "",
                 "%d of 26 letters unlocked" % len(adaptive.alphabet(profile)),
             ],
-            title="NEW LETTER: %s" % ch.upper(),
+            "NEW LETTER: %s" % ch.upper(),
             art=["", "   [ %s ]   " % ch.upper(), ""],
         )
 
@@ -404,12 +405,12 @@ def celebrate_tricks(stdscr, profile, letters):
         trick = cat.learn_trick(profile, letter)
         if not trick:
             continue
-        ui.message(
+        ui.celebrate(
             stdscr,
             ["%s learned %s!" % (kitty.name, trick.upper()),
              "",
              "(your %s key went green)" % letter.upper()],
-            title="NEW TRICK",
+            "NEW TRICK",
             art=kitty.art("pounce"),
         )
 
@@ -543,6 +544,13 @@ def menu_cat_painter(profile, day):
         ui.speech_bubble(win, max(0, y - 3), bx, [line],
                          cp(C_ACCENT), tail_x=max(1, bubble_w - 5))
         c.draw(win, y, x, pose)
+
+        # A looked-after cat purrs. Wisps only, and only when everything
+        # is full -- it's a reward for care, not ambient decoration.
+        if cat.mood(profile) == "thriving" and state["ticks"] % 8 == 0:
+            fx.spawn("purr", y - 1, x + art_w // 2)
+        fx.tick(0.11)   # the menu's idle tick
+        fx.draw(win)
 
     return paint
 

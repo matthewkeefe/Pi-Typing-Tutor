@@ -12,7 +12,7 @@ point of this drill is clean keystrokes on hard keys, not speed.
 
 import curses
 
-from core import adaptive, cat, engine, ui
+from core import adaptive, cat, engine, fx, ui
 from core.ui import (cp, safe_addstr, center, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_WRONG)
 
@@ -72,6 +72,8 @@ def _draw_scene(stdscr, profile, kitty, pose, target, typed, caught, err, fish_x
         center(stdscr, row + 2, "backspace and try that one again", cp(C_WRONG))
 
     center(stdscr, h - 1, "ESC to stop -- fish you caught are yours", cp(C_PENDING))
+    fx.tick(fx.FRAME)
+    fx.draw(stdscr)
     stdscr.refresh()
 
 
@@ -81,8 +83,13 @@ def _fly_fish(stdscr, profile, kitty, target, caught, from_x, to_x):
     for i in range(steps):
         x = int(from_x + (to_x - from_x) * (i + 1) / steps)
         pose = "pounce" if i < steps - 2 else "overjoyed"
+        if i == steps - 1:
+            fx.spawn("splash", 9, x)   # it lands in the water
         _draw_scene(stdscr, profile, kitty, pose, target, target, caught, False, x)
         curses.napms(45)
+    for _ in range(4):                 # watch the splash come down
+        _draw_scene(stdscr, profile, kitty, "sit", target, target, caught, False, None)
+        curses.napms(28)
 
 
 def play(stdscr, profile):
@@ -97,6 +104,7 @@ def play(stdscr, profile):
 
     curses.curs_set(0)
     stdscr.nodelay(False)
+    fx.clear()
 
     while idx < len(words):
         target = words[idx]

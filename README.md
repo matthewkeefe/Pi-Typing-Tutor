@@ -245,6 +245,7 @@ core/cat.py           cat genetics from one seed, ASCII poses, idle behaviour
 core/profiles.py      JSON save data, day streaks, atomic writes
 core/badges.py        22 badge definitions and award logic
 core/ui.py            curses helpers: colors, menus, per-char typing display
+core/fx.py            ASCII particle effects: sparks, confetti, splashes, purrs
 modes/rocket.py       level-based ship builder
 modes/dino.py         endless letter chomper
 modes/platformer.py   accuracy-focused jumper
@@ -344,6 +345,9 @@ no guilt messaging anywhere in this game, by design.
 - **Mastery pace** — `core/adaptive.py`, the tuning block at the top: `GREEN`
   (how good counts as mastered), `TARGET_MS`/`FLOOR_MS` (what fast means for
   your kid), `MIN_SAMPLES` (evidence needed before a key can go green).
+- **How busy the screen is** — `core/fx.py`, `MAX_PARTICLES` (drop it for a
+  calmer screen, or to nothing at all — every effect is additive and the game
+  plays identically without them).
 - **Care pace** — `core/cat.py`, `GAUGE_FULL_HOURS` / `GAUGE_EMPTY_HOURS` (how
   fast a gauge drifts down) and `modes/care.py`, `WATER_WORDS` / `CLEAN_LINES`
   / `PURR_REPEATS` (how long each care task runs).

@@ -251,6 +251,21 @@ def message(stdscr, lines, title=None, art=None, wait=True):
         stdscr.refresh()
 
 
+def celebrate(stdscr, lines, title=None, art=None, kind="confetti"):
+    """
+    `message`, with a short particle flourish over it first. Any keypress
+    skips the animation -- a kid who has seen the confetti twice should
+    never have to sit through it again.
+    """
+    # Imported here rather than at module scope: fx draws through these
+    # helpers, so a top-level import would be circular.
+    from core import fx
+
+    fx.sparkle_over(stdscr, kind,
+                    lambda win: message(win, lines, title=title, art=art, wait=False))
+    message(stdscr, lines, title=title, art=art)
+
+
 def ask_text(stdscr, prompt, maxlen=16):
     """Simple single-line text input (used for profile names)."""
     curses.curs_set(1)

@@ -12,7 +12,7 @@ import curses
 import random
 import time
 
-from core import lessons, ui, engine, adaptive
+from core import lessons, ui, engine, adaptive, fx
 from core.ui import cp, safe_addstr, center, C_TITLE, C_WARN, C_CORRECT, C_WRONG, C_PENDING, C_ACCENT
 
 DINO_IDLE = [
@@ -95,6 +95,7 @@ def play(stdscr, profile):
 
     curses.curs_set(0)
     stdscr.nodelay(True)
+    fx.clear()
 
     running = True
     while running:
@@ -152,6 +153,9 @@ def play(stdscr, profile):
                 best_combo = max(best_combo, combo)
                 score += 1 + combo // 10
                 chomp_until = now + 0.12
+                fx.spawn("spark", match.row, int(match.x))
+                if combo and combo % 10 == 0:
+                    fx.spawn("confetti", match.row, int(match.x), n=10)
             else:
                 # Nothing on screen matched. The letter they *should* have
                 # hit is the one closest to the dino, so the miss counts
@@ -184,6 +188,8 @@ def play(stdscr, profile):
         safe_addstr(stdscr, ground_row, 0, GROUND * max(0, w - 1), cp(C_PENDING))
         center(stdscr, h - 1, "type the letters before they reach the dino   -   ESC to quit",
                cp(C_PENDING))
+        fx.tick(dt)
+        fx.draw(stdscr)   # after the scene, so sparks land on top of it
         stdscr.refresh()
 
         curses.napms(33)  # ~30fps -- smooth enough, and easy on the Pi

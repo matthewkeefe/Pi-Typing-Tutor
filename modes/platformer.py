@@ -13,7 +13,7 @@ perfect-run badge.
 import curses
 import random
 
-from core import lessons, ui, engine
+from core import lessons, ui, engine, fx
 from core.ui import cp, safe_addstr, center, C_TITLE, C_WARN, C_CORRECT, C_WRONG, C_PENDING, C_ACCENT
 
 RUN_LENGTH = 10
@@ -81,6 +81,8 @@ def _draw_world(stdscr, words, current, seed, hero_pos, hero_art, lives, streak,
 
     center(stdscr, h - 1, "no backspace -- type it right the first time   -   ESC to quit",
            cp(C_PENDING))
+    fx.tick(fx.FRAME)
+    fx.draw(stdscr)
     stdscr.refresh()
 
 
@@ -100,7 +102,12 @@ def _animate_jump(stdscr, words, frm, to, seed, lives, streak, draw):
         t = s / steps
         x = x0 + (x1 - x0) * t
         y = y0 + (y1 - y0) * t - 6 * (t - t * t) * 2  # parabolic arc
+        if s == steps:
+            fx.spawn("puff", y1 + 1, x1)   # dust on a stuck landing
         draw((x, y), HERO_JUMP if s < steps else HERO)
+        curses.napms(28)
+    for _ in range(6):                      # let the dust settle
+        draw((x1, y1), HERO)
         curses.napms(28)
 
 
@@ -128,6 +135,7 @@ def play(stdscr, profile):
 
     curses.curs_set(0)
     stdscr.nodelay(False)
+    fx.clear()
 
     while current < RUN_LENGTH and lives > 0:
         pos = _hero_anchor(current, current, seed, stdscr)

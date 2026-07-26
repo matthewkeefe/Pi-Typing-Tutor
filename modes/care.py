@@ -340,7 +340,7 @@ def board(stdscr, profile, play_slot, after_task):
         if not was_done and cat.care_done_today(profile):
             profile["fish"] = profile.get("fish", 0) + BOARD_BONUS
             after_task("care-bonus", None)
-            ui.message(
+            ui.celebrate(
                 stdscr,
                 ["Food, water, pets, play and a clean box.",
                  "",
