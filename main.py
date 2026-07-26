@@ -512,11 +512,69 @@ def growth_ceremony(stdscr, all_profiles, profile):
     profiles.save_all(all_profiles)
 
 
+def secret_ceremony(stdscr, all_profiles, profile):
+    """
+    The one thing the game never tells you about in advance.
+
+    Every letter unlocked and every letter mastered, and the cat comes
+    back wearing stars. Nothing hints at it beforehand -- no progress bar,
+    no "keep going and something happens", nothing in the shop. It's meant
+    to travel between siblings by word of mouth, and it can't do that if
+    the game spoils it.
+
+    It stays lateral: a surprise for finishing the journey, not a tier
+    above anybody else's cat.
+    """
+    if not cat.secret_unseen(profile):
+        return
+    kitty = cat.Cat.from_profile(profile)
+    if kitty is None:
+        return
+
+    h, w = stdscr.getmaxyx()
+    top = max(2, h // 2 - 6)
+    fx.clear()
+    stdscr.nodelay(True)
+    try:
+        for beat in range(46):
+            if beat in (0, 14, 28):
+                fx.spawn("confetti", top + 2, w // 2, n=14)
+            stdscr.erase()
+            center(stdscr, top - 1, "something is different...",
+                   cp(C_WARN, True))
+            art_x = max(0, (w - kitty.width("overjoyed")) // 2)
+            kitty.draw(stdscr, top + 1, art_x, "overjoyed")
+            fx.tick(fx.FRAME)
+            fx.draw(stdscr)
+            stdscr.refresh()
+            if engine.is_quit(stdscr.getch()):
+                return          # unwritten: it comes back next time
+            curses.napms(45)
+    finally:
+        stdscr.nodelay(False)
+        fx.clear()
+
+    ui.message(
+        stdscr,
+        ["%s is covered in stars." % kitty.name,
+         "",
+         "You learned every letter on the keyboard,",
+         "and then you got good at all of them.",
+         "",
+         "Nobody was told this would happen."],
+        title="OH!",
+        art=kitty.art("overjoyed"),
+    )
+    cat.mark_secret_seen(profile)
+    profiles.save_all(all_profiles)
+
+
 def check_growth(stdscr, all_profiles, profile):
     """Advance the cat if earned, then pay out any ceremony still owed."""
     if cat.advance_growth(profile) is not None:
         profiles.save_all(all_profiles)
     growth_ceremony(stdscr, all_profiles, profile)
+    secret_ceremony(stdscr, all_profiles, profile)
 
 
 def after_session(stdscr, all_profiles, profile, mode_name, summary):
@@ -767,6 +825,44 @@ def use_treat_screen(stdscr, all_profiles, profile):
         )
 
 
+def dress_up_screen(stdscr, all_profiles, profile):
+    """
+    Swap between accessories already owned, or take everything off.
+
+    Owning several and being stuck in whichever was bought last would
+    make the fifth one a downgrade of the fourth, which is exactly the
+    tiering this game doesn't do. Taking it off is always on the list --
+    a bare cat is a look, not a lack.
+    """
+    while True:
+        inv = shop.inventory(profile)
+        owned = [i for i in inv["accessories"] if i in cat.ACCESSORIES]
+        if not owned:
+            return
+        worn = cat.worn_accessory(profile)
+
+        labels = []
+        for item_id in owned:
+            mark = "*" if item_id == worn else " "
+            labels.append("%s %-24s" % (mark, shop.BY_ID[item_id]["name"]))
+        labels.append("%s %-24s" % (" " if worn else "*", "Nothing at all"))
+        labels.append("Done".center(26))
+
+        kitty = cat.Cat.from_profile(profile)
+        choice = ui.menu(
+            stdscr,
+            "D R E S S   U P",
+            labels,
+            subtitle="* is what %s has on right now"
+                     % (kitty.name if kitty else "your cat"),
+            art=kitty.art("overjoyed") if kitty else None,
+        )
+        if choice == -1 or choice >= len(labels) - 1:
+            return
+        cat.wear(profile, None if choice == len(owned) else owned[choice])
+        profiles.save_all(all_profiles)
+
+
 def shop_screen(stdscr, all_profiles, profile):
     """
     Browsing is always free and never gated -- window shopping with no
@@ -784,10 +880,13 @@ def shop_screen(stdscr, all_profiles, profile):
             labels.append("%s%-20s %4d fish%s" % (
                 flag, item["name"], item["price"], tag))
 
-        treats = shop.inventory(profile)["treats"]
+        inv = shop.inventory(profile)
+        treats = inv["treats"]
         extras = []
         if treats:
             extras.append("Use a treat (%d)" % sum(treats.values()))
+        if inv["accessories"]:
+            extras.append("Dress up (%d)" % len(inv["accessories"]))
         extras.append("Done")
 
         # ui.menu centres each label on its own, so a price list with
@@ -808,7 +907,11 @@ def shop_screen(stdscr, all_profiles, profile):
         if choice == -1 or choice >= len(labels) + len(extras) - 1:
             return
         if choice >= len(labels):
-            use_treat_screen(stdscr, all_profiles, profile)
+            picked = extras[choice - len(labels)].strip()
+            if picked.startswith("Dress up"):
+                dress_up_screen(stdscr, all_profiles, profile)
+            else:
+                use_treat_screen(stdscr, all_profiles, profile)
             continue
 
         item = items[choice]

@@ -515,6 +515,127 @@ KITTEN = {
 
 POSES = sorted(ADULT)
 
+# Which row each pose's face sits on, per art set. Sixteen entries: this
+# is the accessory slot the issue asks for, kept as a table rather than
+# threaded through sixteen hand-aligned ASCII templates. Editing the
+# templates risks shifting art that is currently correct and can only be
+# checked by eye; a table can be asserted against the rendered result,
+# which is what tests/test_accessories.py does for all sixteen.
+FACE_ROW = {
+    "kitten": {"sit": 1, "loaf": 2, "sleep": 2, "groom": 1,
+               "pounce": 1, "swat": 1, "overjoyed": 1, "wary": 1},
+    "adult": {"sit": 1, "loaf": 2, "sleep": 2, "groom": 1,
+              "pounce": 1, "swat": 1, "overjoyed": 1, "wary": 1},
+}
+
+# Accessories (DESIGN 5.3, deferred from Phase 5 to #22).
+#
+# Rendered as an inserted row rather than painted into the body, because
+# the body is where the fur gene lives -- there is no column that is
+# reliably blank across six fur patterns and sixteen pose/growth
+# combinations. An extra row is uniform, never damages the art, and a cat
+# with nothing on is byte-identical to one from before accessories
+# existed.
+#
+# All lateral. Different, never better: no tiers, no rarity, and the
+# prices sit close together so no one item reads as the good one.
+ACCESSORIES = {
+    "red_collar": {"art": "-o-", "slot": "neck", "word": "a red collar"},
+    "blue_bandana": {"art": "\\_/", "slot": "neck", "word": "a blue bandana"},
+    "bow_tie": {"art": ">o<", "slot": "neck", "word": "a bow tie"},
+    "sun_hat": {"art": "[_]", "slot": "head", "word": "a sun hat"},
+    "daisy": {"art": ",*,", "slot": "head", "word": "a daisy behind the ear"},
+}
+ACCESSORY_IDS = sorted(ACCESSORIES)
+
+# Slow-reveal markings (DESIGN 3.2). Withheld at first and expressed as
+# the cat matures, so the randomisation gets a second act months in.
+MARKS = ["*", "o", ".", "'"]
+
+# The secret. Never hinted at anywhere in the UI -- discovery is meant to
+# travel by sibling word of mouth, which it can't do if the game tells
+# you. Derived, never stored, so it can't be edited into a save.
+STAR = "*"
+
+
+def _face_row(pose, kitten):
+    table = FACE_ROW["kitten" if kitten else "adult"]
+    return table.get(pose, table["sit"])
+
+
+# `worn` has three states, and the difference between two of them is the
+# whole reason this isn't a one-liner:
+#   None  -- never chosen; fall back to whatever was bought last
+#   ""    -- taken off on purpose; the cat wears nothing
+#   <id>  -- deliberately chosen
+# Collapsing the first two would mean a kid who takes the collar off gets
+# it put straight back on by the fallback.
+BARE = ""
+
+
+def worn_accessory(profile):
+    """
+    The accessory this cat has on, or None.
+
+    Buying something puts it on without a second step, because a
+    seven-year-old reads "I bought a hat and nothing happened" as the
+    purchase having failed. A deliberate choice always wins over that,
+    including the deliberate choice of nothing at all.
+    """
+    inv = ((profile or {}).get("inventory") or {})
+    worn = inv.get("worn")
+    if worn == BARE and worn is not None:
+        return None
+    if worn in ACCESSORIES:
+        return worn
+    owned = [i for i in (inv.get("accessories") or []) if i in ACCESSORIES]
+    return owned[-1] if owned else None
+
+
+def wear(profile, item_id):
+    """Put one on, or take everything off with None."""
+    inv = (profile or {}).setdefault("inventory", {})
+    if item_id is None:
+        inv["worn"] = BARE
+        return True
+    if item_id not in ACCESSORIES:
+        return False
+    if item_id not in (inv.get("accessories") or []):
+        return False
+    inv["worn"] = item_id
+    return True
+
+
+def secret_expressed(profile):
+    """
+    The hidden reveal: every letter unlocked AND every one mastered.
+
+    Derived, never stored -- there is nothing in a save file to find, and
+    nothing to edit yourself into. Deliberately unmentioned anywhere in
+    the UI until it happens; the discovery is supposed to travel between
+    siblings, which it can't do if the game announces it in advance.
+    """
+    profile = profile or {}
+    letters = adaptive.alphabet(profile)
+    if len(letters) < 26:
+        return False
+    keys = profile.get("keys") or {}
+    return all(adaptive.is_green(keys.get(ch) or {}) for ch in letters)
+
+
+def secret_unseen(profile):
+    """True when the secret has expressed but its ceremony hasn't run."""
+    data = (profile or {}).get("cat") or {}
+    if "seed" not in data:
+        return False
+    return secret_expressed(profile) and not data.get("secret_seen")
+
+
+def mark_secret_seen(profile):
+    data = (profile or {}).get("cat") or {}
+    if "seed" in data:
+        data["secret_seen"] = True
+
 
 # --- growth (DESIGN 3.2, issue #22) ---------------------------------
 #
@@ -625,35 +746,47 @@ def growth_progress(profile):
 GLYPH_EARS = {"pointy": ("/", "\\"), "round": ("(", ")"), "tufted": ("<", ">")}
 
 
-def _expand(row, subs):
+def _expand(row, subs, track=None):
     """
-    Expand one template row. Returns (text, accent_columns), where the
-    accent columns are the ones the accent colour paints.
+    Expand one template row.
+
+    Returns (text, accent_columns, tracked), where `tracked` maps each
+    placeholder letter named in `track` to the columns it produced. The
+    marking reveal needs to know which columns are fur rather than
+    outline, and it can't tell by looking: a "solid" cat's fill is a
+    space, which is indistinguishable from the blank around the body.
     """
     out = []
     accents = set()
+    tracked = {k: [] for k in (track or ())}
     i = 0
     while i < len(row):
         if row[i] == "{" and i + 2 < len(row) and row[i + 2] == "}":
-            text, hot = subs.get(row[i + 1], (row[i:i + 3], False))
+            key = row[i + 1]
+            text, hot = subs.get(key, (row[i:i + 3], False))
             for ch in text:
                 if hot:
                     accents.add(len(out))
+                if key in tracked:
+                    tracked[key].append(len(out))
                 out.append(ch)
             i += 3
         else:
             out.append(row[i])
             i += 1
-    return "".join(out), accents
+    return "".join(out), accents, tracked
 
 
 class Cat:
     """A rendered cat. Cheap to build -- make one per screen, not per frame."""
 
-    def __init__(self, seed, name=None, growth=0):
+    def __init__(self, seed, name=None, growth=0, accessory=None,
+                 secret=False):
         self.seed = int(seed)
         self.name = name or "your cat"
         self.growth = growth
+        self.accessory = accessory if accessory in ACCESSORIES else None
+        self.secret = bool(secret)
 
         self.fur = _gene(self.seed, "fur", FUR_NAMES)
         self.eyes = _gene(self.seed, "eyes", EYES)
@@ -662,6 +795,9 @@ class Cat:
         self.tail = _gene(self.seed, "tail", TAILS)
         self.personality = _gene(self.seed, "personality", PERSONALITIES)
         self.colors = _gene(self.seed, "colors", COLOR_COMBOS)
+        # Own stream, per the Phase 2 convention -- adding this gene must
+        # not repaint a single existing cat.
+        self.marks = _gene(self.seed, "marks", MARKS)
 
     # -- classmethods ------------------------------------------------
 
@@ -671,7 +807,9 @@ class Cat:
         data = (profile or {}).get("cat") or {}
         if "seed" not in data:
             return None
-        return cls(data["seed"], data.get("name"), data.get("growth", 0))
+        return cls(data["seed"], data.get("name"), data.get("growth", 0),
+                   accessory=worn_accessory(profile),
+                   secret=secret_expressed(profile))
 
     # -- appearance --------------------------------------------------
 
@@ -708,7 +846,74 @@ class Cat:
             "T": (TAIL_LIE[self.tail], True),
             "U": (TAIL_TIP[self.tail], True),
         }
-        return [_expand(row, subs) for row in self._template(pose, growth)]
+
+        stage = self.growth if growth is None else growth
+        rows = []
+        for row in self._template(pose, growth):
+            text, accents, tracked = _expand(row, subs, track="f")
+            text, accents = self._reveal(text, accents, tracked["f"], stage)
+            rows.append((text, accents))
+
+        return self._wear(rows, pose, growth)
+
+    def _reveal(self, text, accents, fill_cols, stage):
+        """
+        Slow-reveal markings, and the secret beyond them.
+
+        Additive and gated on growth, so a kitten looks exactly as it
+        always did -- "same seed, same cat, forever" has to survive this
+        feature too. Markings appear as the cat matures: one at the adult
+        stage, the whole flank at elder.
+        """
+        if not fill_cols or stage < 2:
+            return text, accents
+
+        chars = list(text)
+        hot = set(accents)
+        glyph = STAR if self.secret else self.marks
+        # Adult shows a single mark; elder shows the full pattern. The
+        # secret, when it's expressed, takes over every one of them.
+        chosen = fill_cols if (stage >= 3 or self.secret) else \
+            fill_cols[len(fill_cols) // 2:len(fill_cols) // 2 + 1]
+        for col in chosen:
+            chars[col] = glyph
+            hot.add(col)
+        return "".join(chars), hot
+
+    def _wear(self, rows, pose, growth=None):
+        """
+        Insert the accessory row, if anything is being worn.
+
+        A row rather than a painted-on character: the body columns belong
+        to the fur gene, and across six fur patterns and sixteen
+        pose/growth combinations there is no column that is reliably
+        blank. Inserting is uniform and cannot damage the art -- with
+        nothing worn, this returns `rows` untouched.
+        """
+        if not self.accessory:
+            return rows
+        item = ACCESSORIES[self.accessory]
+        face = _face_row(pose, self.is_kitten(growth))
+        face = max(0, min(face, len(rows) - 1))
+
+        # Centre it on the face, which is the one landmark every pose has.
+        face_text = rows[face][0]
+        open_at = face_text.find("(")
+        close_at = face_text.rfind(")")
+        art = item["art"]
+        if open_at >= 0 and close_at > open_at:
+            centre = (open_at + close_at) // 2
+        else:
+            centre = len(face_text) // 2
+        col = max(0, centre - len(art) // 2)
+
+        line = " " * col + art
+        accents = set(range(col, col + len(art)))
+        # Neck sits under the face; head goes above the *ears*, which are
+        # the row before the face -- a hat between the ears and the eyes
+        # reads as a hat being worn on the nose.
+        at = face + 1 if item["slot"] == "neck" else max(0, face - 1)
+        return rows[:at] + [(line, accents)] + rows[at:]
 
     def art(self, pose="sit", growth=None):
         """Plain text rows -- handy for ui.message art and for tests."""
@@ -718,7 +923,7 @@ class Cat:
         return max((len(r) for r in self.art(pose, growth)), default=0)
 
     def height(self, pose="sit", growth=None):
-        return len(self._template(pose, growth))
+        return len(self.art(pose, growth))
 
     def draw(self, win, y, x, pose="sit", growth=None):
         """

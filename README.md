@@ -179,6 +179,22 @@ copying, so each successful pass blanks out more of the text:
 Finish the blind pass and it counts as memorized. `TAB` peeks for 1.5 seconds — it
 doesn't fail you, it just gets counted so you can see how much scaffolding was needed.
 
+Your cat grows up. Four stages — kitten, young, grown-up, great fluffy cat — and
+each one needs *both* thresholds met: days you've shown up, and letters you've
+learned (10/30/75 days against 12/20/26 letters). Pairing the two is deliberate:
+days alone would reward leaving the Pi switched on, and letters alone would turn
+your cat into a score. Neither is grindable in an afternoon, which is the point —
+this is the part of the game that pays out in months.
+
+Growing up is never a reward for being fast. Nothing in the ceremony mentions
+speed or accuracy, and growth never goes backwards. Markings you've never seen
+before start showing on the body as the stages arrive, so the cat you got on day
+one has a second act waiting.
+
+Accessories — a collar, a bandana, a bow tie, a sun hat, a daisy — live in the
+shop and go on your cat straight away. Own several and "Dress up" swaps between
+them, including taking everything off, which is a look rather than a lack.
+
 Passages come from `data/passages.txt` (one per line). Put their spelling list,
 times tables, or a poem in there and it becomes the drill.
 
@@ -493,4 +509,5 @@ no guilt messaging anywhere in this game, by design.
 - **Mystery Word patience** — `modes/mystery.py`, `MAX_WRONG` and `REVEAL_SHARE`.
 - **Quiz round length** — `modes/quiz.py`, `ROUND` and `RETRY_LIMIT`.
 - **How many ghosts are kept** — `core/ghosts.py`, `MAX_GHOSTS`.
+- **How fast the cat grows** — `core/cat.py`, `GROWTH_DAYS` and `GROWTH_LETTERS`.
 - **Occlusion ramp** — `modes/memorize.py`, `REVEAL_SCHEDULE`.

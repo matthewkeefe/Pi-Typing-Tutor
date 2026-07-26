@@ -118,11 +118,28 @@ class TestRendering(unittest.TestCase):
                     for j in accents:
                         self.assertLess(j, len(text))
 
-    def test_solid_fur_has_no_body_markings(self):
+    def test_solid_fur_has_no_body_markings_before_the_reveal(self):
+        """
+        A solid cat is blank-bodied for its first two stages. It stops
+        being blank at adult, on purpose: that's the slow-reveal from #22,
+        which is why this checks the young stage rather than the elder one
+        it used to.
+        """
         solid = next(c for c in (cat.Cat(s) for s in range(500))
                      if c.fur == "solid")
-        body = solid.art("loaf", 3)[3]
-        self.assertEqual(body.strip("()"), " " * 5)
+        body = solid.art("loaf", 1)[3]
+        inner = body[body.index("\\") + 1:body.index("/")]
+        self.assertEqual(inner, " " * len(inner))
+        self.assertTrue(inner)
+
+    def test_markings_only_arrive_with_growth(self):
+        solid = next(c for c in (cat.Cat(s) for s in range(500))
+                     if c.fur == "solid")
+        blank = solid.art("loaf", 0)
+        self.assertEqual(solid.art("loaf", 1), blank,
+                         "a young cat must look exactly like the kitten")
+        self.assertNotEqual(solid.art("loaf", 2), blank,
+                            "markings should have arrived by adult")
 
     def test_kittens_are_smaller_than_adults(self):
         c = cat.Cat(42)

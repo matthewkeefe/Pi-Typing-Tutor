@@ -32,6 +32,7 @@ KIND_TOY = "toy"
 KIND_TREAT = "treat"
 KIND_LITTER = "litter"
 KIND_DECOR = "decor"
+KIND_ACCESSORY = "accessory"
 
 # Streak insurance. Bought ahead of time -- protection, not pardon.
 LITTER_TIERS = ["basic", "clumping", "deluxe"]
@@ -76,6 +77,25 @@ CATALOG = [
     {"id": "red_dot", "kind": KIND_TOY, "name": "The red dot", "price": 40,
      "blurb": "nobody has ever caught it",
      "says": "This time. This time I get it."},
+
+    # --- accessories: worn on the cat, permanent, purely cosmetic.
+    # All lateral (DESIGN guard 3): no tiers, no rarity, and the prices
+    # sit close together so none of them reads as the good one.
+    {"id": "red_collar", "kind": KIND_ACCESSORY, "name": "Red collar", "price": 30,
+     "blurb": "with a little bell",
+     "says": "Now everyone knows I'm coming."},
+    {"id": "blue_bandana", "kind": KIND_ACCESSORY, "name": "Blue bandana", "price": 30,
+     "blurb": "very outdoorsy",
+     "says": "I look ready for anything."},
+    {"id": "bow_tie", "kind": KIND_ACCESSORY, "name": "Bow tie", "price": 35,
+     "blurb": "for formal napping",
+     "says": "I am extremely distinguished."},
+    {"id": "sun_hat", "kind": KIND_ACCESSORY, "name": "Sun hat", "price": 35,
+     "blurb": "shade, wherever you sit",
+     "says": "The sunbeam is mine now."},
+    {"id": "daisy", "kind": KIND_ACCESSORY, "name": "Daisy", "price": 25,
+     "blurb": "tucked behind one ear",
+     "says": "*extremely pleased with self*"},
 
     # --- treats: consumable buffers, chosen by the kid before a game
     {"id": "tuna_flake", "kind": KIND_TREAT, "name": "Tuna flake", "price": 18,
@@ -137,6 +157,8 @@ def inventory(profile):
     inv.setdefault("treats", {})
     inv.setdefault("litter", "basic")
     inv.setdefault("decor", [])
+    inv.setdefault("accessories", [])
+    inv.setdefault("worn", None)
     return inv
 
 
@@ -275,6 +297,12 @@ def buy(profile, item_id):
         inv["toys"].append(item_id)
     elif kind == KIND_DECOR:
         inv["decor"].append(item_id)
+    elif kind == KIND_ACCESSORY:
+        inv["accessories"].append(item_id)
+        # Wear it straight away -- buying a hat and then having to find a
+        # second screen to put it on is the kind of step a seven-year-old
+        # reads as the purchase not having worked.
+        inv["worn"] = item_id
     elif kind == KIND_LITTER:
         inv["litter"] = item["tier"]
     elif kind == KIND_TREAT:
