@@ -175,7 +175,9 @@ def frame(win, top, left, height, width, title=None, attr=0):
     height = max(3, height)
     head = "-" * (width - 2)
     if title:
-        label = " %s " % title[:width - 6]
+        # Reserve only the two corners and a couple of dashes -- a cat
+        # called "Mittens" was arriving as "Mitten".
+        label = " %s " % title[:max(1, width - 4)]
         head = label + "-" * max(0, width - 2 - len(label))
     safe_addstr(win, top, left, "." + head + ".", attr)
     for i in range(1, height - 1):

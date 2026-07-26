@@ -151,13 +151,26 @@ class TestTheCatPanel(unittest.TestCase):
         width, height, _draw = panel
         kitty = cat.Cat.from_profile(a_profile())
         for pose in cat.POSES:
-            self.assertLessEqual(kitty.width(pose, big=True), width, pose)
+            self.assertLessEqual(kitty.width(pose), width, pose)
 
-    def test_the_panel_uses_the_portrait_not_the_sprite(self):
+    def test_the_panel_fits_the_widest_pose_and_the_name(self):
+        """
+        Sized to the widest pose, so an idle change never reflows the
+        frame -- and to the name, which sits in the frame edge and can be
+        twelve characters. "Mittens" was arriving as "Mitten".
+        """
         kitty = cat.Cat.from_profile(a_profile())
         width, _h, _d = main.menu_cat_panel(a_profile(), {"free_play": 0})
-        self.assertGreater(width, kitty.width("sit"),
-                           "the menu should show the big cat")
+        self.assertGreaterEqual(width, max(kitty.width(p) for p in cat.POSES))
+        self.assertGreaterEqual(width, len(kitty.name) + 3)
+
+    def test_a_long_name_survives_the_frame_edge(self):
+        p = a_profile()
+        p["cat"]["name"] = "Bartholomew1"          # ask_text caps at 12
+        width, _h, _d = main.menu_cat_panel(p, {"free_play": 0})
+        win = FakeWin()
+        ui.frame(win, 1, 1, 6, width + 2, p["cat"]["name"])
+        self.assertIn(p["cat"]["name"], win.render()[1])
 
     def test_the_panel_draws_inside_its_frame(self):
         win = FakeWin()

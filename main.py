@@ -1441,16 +1441,18 @@ def menu_cat_panel(profile, day):
 
     Returns (width, height, draw) for ui.menu, or None for a profile with
     no cat -- in which case the menu is the plain centred one it always
-    was. The portrait set is used here rather than the game sprite: this
-    is the screen where the cat IS the screen.
+    was.
     """
     kitty = cat.Cat.from_profile(profile)
     if kitty is None:
         return None
 
-    poses = [p for p in cat.POSES if p not in ("wary",)]
-    width = max(kitty.width(p, big=True) for p in poses)
-    height = max(kitty.height(p, big=True) for p in poses)
+    # Sized to the widest pose so an idle change never reflows the frame,
+    # and to the cat's name, which goes in the frame edge and can be
+    # twelve characters.
+    width = max(max(kitty.width(p) for p in cat.POSES),
+                len(kitty.name) + 3)
+    height = max(kitty.height(p) for p in cat.POSES)
     state = {"pose": "sit", "ticks": 0}
 
     def draw(win, top, left):
@@ -1465,9 +1467,8 @@ def menu_cat_panel(profile, day):
         elif cat.mood(profile) == "missing":
             pose = "sleep"
         # Centred in its frame, and never taller than the frame allows.
-        art_w = kitty.width(pose, big=True)
-        kitty.draw(win, top, left + max(0, (width - art_w) // 2), pose,
-                   big=True)
+        art_w = kitty.width(pose)
+        kitty.draw(win, top, left + max(0, (width - art_w) // 2), pose)
 
     return width, height, draw
 
