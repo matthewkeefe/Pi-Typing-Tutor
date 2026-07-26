@@ -1,7 +1,11 @@
 """
 Tests for the cat's genetics and rendering. No curses -- `Cat.draw` is
 the only part that touches a window, and it's exercised by the pty
-screenshot harness rather than here.
+screenshot harness (`python3 tools/screenshot.py cats`) rather than here.
+
+That harness referred to itself in this docstring for seven phases before
+it existed. It exists now, and it has since caught every rendering bug the
+suite missed -- see its module docstring for the list.
 """
 
 import os

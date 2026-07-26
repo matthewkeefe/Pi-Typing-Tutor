@@ -444,6 +444,8 @@ data/words.txt        curated kid-appropriate word list (see its header)
 data/quiz.txt         your own quiz questions -- swap in a spelling list
 tools/build_words.py  regenerates data/words.txt from curated vocabulary
 tools/simulate.py     simulated playtest: personas vs the real engine
+tools/screenshot.py   render any screen to a real terminal and look at it
+docs/playtest.md      the questions only children can answer
 tests/                stdlib unittest suite for the non-curses code
 ```
 
@@ -477,7 +479,25 @@ single persona's numbers is a hypothesis.
 
 It answers pacing and reachability, which is exactly what a real playtest can't:
 nobody runs a 75-day session with a child. It says nothing about how anything
-*feels*, which is exactly what a real playtest is for.
+*feels*, which is exactly what a real playtest is for — see `docs/playtest.md`
+for the fourteen questions waiting on actual kids.
+
+### Looking at the screen
+
+```bash
+python3 tools/screenshot.py --list
+python3 tools/screenshot.py stats --profile graduate
+python3 tools/screenshot.py --all --out /tmp/shots
+```
+
+The test suite draws into a fake window that fails loudly if anything lands
+off-screen. That catches crashes and overflow; it cannot tell you the screen is
+*correct*. Across phases 6–9, **every single rendering bug got through a green
+suite** — a smeared soup bowl, Mystery Word rendering its own answer, hats on the
+cat's nose, earned accessories that were invisible, a stats screen drawing through
+itself. Seven bugs, seven green suites.
+
+This makes looking cheap. Use it whenever you change something that draws.
 
 ## The adaptive engine
 
