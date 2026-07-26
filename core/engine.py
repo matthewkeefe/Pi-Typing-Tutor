@@ -27,6 +27,7 @@ class Session:
         self.wrong_chars = 0
         self.words_done = 0
         self.keys = {}          # {ch: {"n", "err", "ms_sum", "ms_n"}}
+        self.intervals = []     # gaps between keystrokes, ms, for evenness()
         self._last_key_at = None
 
     def start_if_needed(self):
@@ -45,6 +46,11 @@ class Session:
             self.wrong_chars += 1
 
         now = time.monotonic()
+        if self._last_key_at is not None and len(self.intervals) < 4000:
+            gap = (now - self._last_key_at) * 1000.0
+            if gap <= MAX_LATENCY_MS:
+                self.intervals.append(gap)
+
         if ch is not None and ch != " ":
             entry = self.keys.get(ch)
             if entry is None:
@@ -108,6 +114,26 @@ class Session:
         if self.keys:
             out["keys"] = self.keys
         return out
+
+
+def evenness(intervals):
+    """
+    How steady a typing rhythm was, 0.0 (lurching) to 1.0 (metronomic).
+
+    Coefficient of variation, flipped and clamped. Used by the Pets purr
+    drill and, later, by the wary cat's win-it-back beat -- both of which
+    reward calm, even typing rather than speed. There is no failing score
+    here, only a bigger or smaller purr.
+    """
+    usable = [i for i in intervals if i > 0]
+    if len(usable) < 3:
+        return 0.0
+    mean = sum(usable) / len(usable)
+    if mean <= 0:
+        return 0.0
+    var = sum((i - mean) ** 2 for i in usable) / len(usable)
+    cv = (var ** 0.5) / mean
+    return max(0.0, min(1.0, 1.0 - cv))
 
 
 def is_typable(key):

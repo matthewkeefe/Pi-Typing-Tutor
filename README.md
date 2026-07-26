@@ -249,6 +249,8 @@ modes/rocket.py       level-based ship builder
 modes/dino.py         endless letter chomper
 modes/platformer.py   accuracy-focused jumper
 modes/memorize.py     progressive-occlusion repetition drill
+modes/feed.py         the Food task: adaptive weak-key drill, as fishing
+modes/care.py         care board + the Water / Pets / Clean activities
 data/passages.txt     your own memorize content
 tests/                stdlib unittest suite for the non-curses code
 ```
@@ -302,12 +304,49 @@ so there is nothing here for the game to rank.
 Cats double as profile icons — the little `(o.o)` face beside each name in
 the picker is that kid's own cat, in that cat's colours.
 
+## The daily loop
+
+The cat greets your kid on arrival and says what it would like today. Care
+comes first, then the arcade opens:
+
+| Task | What they do | What it actually trains |
+|---|---|---|
+| **Food** | Fishing: type a word, a fish arcs into the bowl | Their weakest keys — the core of it |
+| **Water** | Fill the bowl without spilling; a mistake sloshes and the word restarts | Accuracy before speed |
+| **Pets** | Type a soothing phrase smoothly; a steadier rhythm purrs louder | Even cadence |
+| **Play** | Any game they like, their pick | Autonomy — plus whatever they chose |
+| **Clean** | Litter scoop: numbers and punctuation | The keys nobody practises |
+
+All five together run about ten minutes, and the kid picks the order. That
+last part matters more than it sounds: structure with real choices inside it
+is what the research found actually moves motivation at this age.
+
+Doing all five opens free play for the day and earns a fish bonus. Fish come
+from **words typed**, never from scores — showing up on a bad day pays the
+same as a good one. Stats, Badges, Switch player and Quit are never gated,
+and ESC always backs out of anything.
+
+Nothing in the care activities can be failed. No lives, no timers, no score
+penalties. The worst available outcome is stopping early, and whatever was
+done still counts.
+
+### What happens when nobody plays for a week
+
+The gauges empty and the cat sleeps and misses you. That's the whole of it.
+Fish, badges, streak records, tricks and growth are all exactly where they
+were left — absence freezes progress, it never reverses it, and coming back
+is a reunion rather than a telling-off. There is no death, no sickness, and
+no guilt messaging anywhere in this game, by design.
+
 ## Tuning it for your kids
 
 - **Word lists** — `core/lessons.py`, the `LEVELS` list. Swap in their spelling words.
 - **Mastery pace** — `core/adaptive.py`, the tuning block at the top: `GREEN`
   (how good counts as mastered), `TARGET_MS`/`FLOOR_MS` (what fast means for
   your kid), `MIN_SAMPLES` (evidence needed before a key can go green).
+- **Care pace** — `core/cat.py`, `GAUGE_FULL_HOURS` / `GAUGE_EMPTY_HOURS` (how
+  fast a gauge drifts down) and `modes/care.py`, `WATER_WORDS` / `CLEAN_LINES`
+  / `PURR_REPEATS` (how long each care task runs).
 - **Rocket pass threshold** — `modes/rocket.py`, the `85.0` in `play()`.
 - **Dino difficulty ramp** — `modes/dino.py`, `_speed_for()` and `_spawn_gap()`.
 - **Platformer harshness** — `modes/platformer.py`, `RUN_LENGTH` and `LIVES`.

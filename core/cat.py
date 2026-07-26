@@ -17,8 +17,9 @@ edits, not just re-runs.
 
 import random
 import zlib
+from datetime import date, datetime
 
-from core import ui
+from core import adaptive, ui
 
 # --- genes ----------------------------------------------------------
 
@@ -94,6 +95,229 @@ IDLE_WEIGHTS = {
     "hunter":  {"pounce": 30, "sit": 35, "groom": 15, "loaf": 15, "sleep": 5},
     "cuddly":  {"sit": 35, "loaf": 30, "groom": 20, "sleep": 15},
 }
+
+
+# --- care gauges ----------------------------------------------------
+#
+# Nothing about a gauge is stored. `profile["cat"]["care"]` holds one
+# timestamp per task and every level is derived from it, which means
+# there is no gauge state to migrate, corrupt, or quietly drain while
+# the game isn't running.
+#
+# THE INVARIANT (DESIGN 3.3): the floor of a gauge is "wants", never
+# "harmed". An empty gauge changes what the cat does on screen and
+# nothing else -- no damage, no debuff, no lost progress, ever.
+
+CARE_TASKS = ("food", "water", "pets", "play", "clean")
+
+CARE_LABELS = {
+    "food": "Food", "water": "Water", "pets": "Pets",
+    "play": "Play", "clean": "Clean",
+}
+# How the cat asks for each one, for the startup callout.
+CARE_NEEDS = {
+    "food": "food",
+    "water": "fresh water",
+    "pets": "a cuddle",
+    "play": "playtime",
+    "clean": "a clean litter box",
+}
+CARE_BLURBS = {
+    "food": "go fishing for words",
+    "water": "fill the bowl, no spills",
+    "pets": "purr rhythm",
+    "play": "your pick of any game",
+    "clean": "scoop the litter box",
+}
+
+GAUGE_FULL_HOURS = 12.0    # stays full this long after the task is done
+GAUGE_EMPTY_HOURS = 36.0   # ...then drifts to empty by here
+WARY_DAYS = 3              # untouched this long and the cat goes wary (Phase 5)
+
+
+def _parse_when(text):
+    """
+    Parse a stored care stamp. Accepts a full timestamp or a bare date
+    (older saves, or a parent hand-editing the JSON), and shrugs off
+    anything it can't read rather than taking the game down.
+    """
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text)
+    except (ValueError, TypeError):
+        pass
+    try:
+        return datetime.combine(date.fromisoformat(text[:10]), datetime.min.time())
+    except (ValueError, TypeError):
+        return None
+
+
+def hours_since_care(profile, task, now=None):
+    """Hours since `task` was last done, or None if it never has been."""
+    when = _parse_when(((profile.get("cat") or {}).get("care") or {}).get(task))
+    if when is None:
+        return None
+    now = now or datetime.now()
+    # The Pi has no network time and may have no RTC battery. A clock that
+    # jumped backwards must not make the cat look neglected, so negative
+    # deltas read as "just done".
+    return max(0.0, (now - when).total_seconds() / 3600.0)
+
+
+def gauge(profile, task, now=None):
+    """This gauge's level, 0.0 (wants attention) to 1.0 (looked after)."""
+    hours = hours_since_care(profile, task, now)
+    if hours is None:
+        return 0.0
+    if hours <= GAUGE_FULL_HOURS:
+        return 1.0
+    span = GAUGE_EMPTY_HOURS - GAUGE_FULL_HOURS
+    return max(0.0, 1.0 - (hours - GAUGE_FULL_HOURS) / span)
+
+
+def gauges(profile, now=None):
+    return {t: gauge(profile, t, now) for t in CARE_TASKS}
+
+
+def needs(profile, now=None):
+    """Tasks that aren't full -- what the cat asks for on startup."""
+    return [t for t in CARE_TASKS if gauge(profile, t, now) < 1.0]
+
+
+def done_today(profile, task, today=None):
+    stamp = ((profile.get("cat") or {}).get("care") or {}).get(task)
+    when = _parse_when(stamp)
+    if when is None:
+        return False
+    return when.date() == (today or date.today())
+
+
+def care_done_today(profile, today=None):
+    """All five looked after today -- what opens free play."""
+    return all(done_today(profile, t, today) for t in CARE_TASKS)
+
+
+def tasks_left_today(profile, today=None):
+    return [t for t in CARE_TASKS if not done_today(profile, t, today)]
+
+
+def stamp_care(profile, task, now=None):
+    """Record that a care task just happened."""
+    data = profile.setdefault("cat", {})
+    care = data.setdefault("care", {})
+    care[task] = (now or datetime.now()).isoformat(timespec="seconds")
+    return care[task]
+
+
+def hours_since_anything(profile, now=None):
+    """
+    Time since the cat last had any attention at all. Falls back to the
+    hatch date so a kitten that was born five minutes ago doesn't read as
+    abandoned. None means we genuinely can't tell.
+    """
+    now = now or datetime.now()
+    seen = None
+    for task in CARE_TASKS:
+        hours = hours_since_care(profile, task, now)
+        if hours is not None:
+            seen = hours if seen is None else min(seen, hours)
+    if seen is not None:
+        return seen
+    hatched = _parse_when((profile.get("cat") or {}).get("hatched"))
+    if hatched is None:
+        return None
+    return max(0.0, (now - hatched).total_seconds() / 3600.0)
+
+
+def is_wary(profile, now=None):
+    """
+    Nobody has been by in days. Phase 5 turns this into the win-it-back
+    beat; it never costs the kid anything either way.
+    """
+    hours = hours_since_anything(profile, now)
+    return hours is not None and hours >= WARY_DAYS * 24
+
+
+# Moods, warmest first. The bottom of the range is a cat that misses you
+# and is asleep -- there is deliberately nothing below it.
+MOODS = ("thriving", "content", "hopeful", "missing")
+MOOD_POSES = {
+    "thriving": "overjoyed",
+    "content": "loaf",
+    "hopeful": "sit",
+    "missing": "sleep",
+}
+MOOD_WORDS = {
+    "thriving": "delighted",
+    "content": "comfy",
+    "hopeful": "hoping for some attention",
+    "missing": "curled up, missing you",
+}
+
+
+def mood(profile, now=None):
+    levels = list(gauges(profile, now).values())
+    if not levels:
+        return "missing"
+    average = sum(levels) / len(levels)
+    if average >= 0.999:
+        return "thriving"
+    if average >= 0.5:
+        return "content"
+    if average > 0.0:
+        return "hopeful"
+    # Empty gauges alone aren't sadness: a cat that has only just hatched
+    # is hopeful, not missing anybody. Only real absence reads as absence.
+    return "missing" if is_wary(profile, now) else "hopeful"
+
+
+def mood_pose(name):
+    return MOOD_POSES.get(name, "sit")
+
+
+def gauge_bar(level, width=10):
+    filled = int(round(max(0.0, min(1.0, level)) * width))
+    return "[" + "#" * filled + "-" * (width - filled) + "]"
+
+
+# --- tricks ---------------------------------------------------------
+#
+# One trick per letter of the alphabet, assigned by unlock order, so a
+# given letter always earns the same trick. This is the research's
+# "perceived competence" lever wearing a cat suit: the kid sees the skill
+# they just gained, named and kept.
+
+TRICKS = [
+    "pounce", "spin", "high-five", "backflip", "box-sit", "slow-blink",
+    "zoomies", "paw-shake", "chirp", "biscuits", "sploot", "periscope",
+    "shoulder-perch", "tail-flick", "fetch", "roll-over", "wave",
+    "head-boop", "loaf-flip", "chatter", "moonwalk", "string-bat",
+    "catnap-flop", "knead", "leap", "purr-song",
+]
+
+
+def trick_for_letter(letter):
+    """Stable mapping: R always earns the same trick, forever."""
+    idx = adaptive.FREQ_ORDER.find(letter)
+    if idx < 0:
+        return None
+    return TRICKS[idx % len(TRICKS)]
+
+
+def learn_trick(profile, letter):
+    """
+    Teach the cat the trick for `letter`. Returns its name if it's new,
+    None if the cat already knew it -- tricks are additive and permanent.
+    """
+    name = trick_for_letter(letter)
+    if not name:
+        return None
+    tricks = profile.setdefault("cat", {}).setdefault("tricks", [])
+    if name in tricks:
+        return None
+    tricks.append(name)
+    return name
 
 
 def _gene(seed, key, options):
@@ -173,7 +397,7 @@ ADULT = {
         " {p} {p}{T}",
     ],
     "overjoyed": [
-        "  {L}_{R} {U}",
+        "  {L}_{R}  {U}",
         " ( ^ ^ ) |",
         "  > w <  |",
         " /{f}{f}{f}\\",

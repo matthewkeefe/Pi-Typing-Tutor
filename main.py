@@ -19,7 +19,15 @@ from datetime import date
 from core import profiles, badges, ui, lessons, adaptive, cat, engine
 from core.ui import (cp, center, safe_addstr, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_BADGE, C_DEFAULT)
-from modes import rocket, dino, platformer, memorize
+from modes import rocket, dino, platformer, memorize, care
+
+# The free-play arcade: (module, history name, label, blurb).
+ARCADE = [
+    (rocket, "rocket", "Rocket Builder", "levels, build a ship"),
+    (dino, "dino", "Dino Chomp", "endless, high score"),
+    (platformer, "platform", "Platform Jumper", "accuracy, don't fall"),
+    (memorize, "memorize", "Memorize", "learn it by heart"),
+]
 
 BANNER = [
     " _____ _   _ ____  _____   _ _   _ ",
@@ -383,6 +391,29 @@ def announce_letters(stdscr, profile, letters):
         )
 
 
+def celebrate_tricks(stdscr, profile, letters):
+    """
+    A key went green, so the cat learned something. This is the research's
+    "perceived competence" lever wearing a cat suit -- the popup names the
+    skill the kid actually gained, and the trick is kept forever.
+    """
+    kitty = cat.Cat.from_profile(profile)
+    if not kitty:
+        return
+    for letter in letters:
+        trick = cat.learn_trick(profile, letter)
+        if not trick:
+            continue
+        ui.message(
+            stdscr,
+            ["%s learned %s!" % (kitty.name, trick.upper()),
+             "",
+             "(your %s key went green)" % letter.upper()],
+            title="NEW TRICK",
+            art=kitty.art("pounce"),
+        )
+
+
 def after_session(stdscr, all_profiles, profile, mode_name, summary):
     progress = {"green": [], "unlocked": []}
     if summary:
@@ -396,22 +427,87 @@ def after_session(stdscr, all_profiles, profile, mode_name, summary):
             summary["seconds"],
         )
         progress = adaptive.merge_keys(profile, summary.get("keys"))
+        # Fish come from volume typed, never from hitting a score. Showing
+        # up on a bad day has to pay the same as a good one.
+        profile["fish"] = profile.get("fish", 0) + summary.get("words", 0)
     fresh = badges.check_new(profile)
     profiles.save_all(all_profiles)
     announce_letters(stdscr, profile, progress["unlocked"])
+    celebrate_tricks(stdscr, profile, progress["green"])
     if fresh:
         celebrate_badges(stdscr, fresh)
+    profiles.save_all(all_profiles)
 
 
-POSE_TICKS = 36   # ~4s at the menu's 110ms idle tick
-BUBBLE_MAX = 14   # keeps the bubble clear of the centred menu labels
+POSE_TICKS = 36        # ~4s at the menu's 110ms idle tick
+BUBBLE_MAX = 14        # keeps the bubble clear of the centred menu labels
+SLEEP_AFTER_ROUNDS = 2  # free-play rounds before the cat curls up (a cue, not a wall)
 
 
-def menu_cat_painter(profile):
+def _sentence(items):
+    """'food, playtime and a clean litter box'"""
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    return "%s and %s" % (", ".join(items[:-1]), items[-1])
+
+
+def _wrap(text, width=38):
+    lines, line = [], ""
+    for word in text.split():
+        if line and len(line) + 1 + len(word) > width:
+            lines.append(line)
+            line = word
+        else:
+            line = (line + " " + word).strip()
+    if line:
+        lines.append(line)
+    return lines
+
+
+def care_callout(stdscr, profile):
+    """
+    The cat as quest-giver: on arrival it says what it would like today.
+    It asks; it never guilts, and nothing bad happens if the kid ignores
+    it and goes to Stats instead.
+    """
+    kitty = cat.Cat.from_profile(profile)
+    if not kitty:
+        return
+    left = cat.tasks_left_today(profile)
+    if left:
+        lines = _wrap("%s would like %s." % (
+            kitty.name, _sentence([cat.CARE_NEEDS[t] for t in left])))
+        pose = cat.mood_pose(cat.mood(profile))
+    else:
+        lines = ["%s has everything it needs." % kitty.name, "Go and play!"]
+        pose = "overjoyed"
+
+    stdscr.erase()
+    h, w = stdscr.getmaxyx()
+    top = max(1, h // 2 - 6)
+    art_w = kitty.width(pose)
+    cat_x = max(0, (w - art_w) // 2)
+    bubble_w = max(len(l) for l in lines) + 4
+    tail_x = 3
+    ui.speech_bubble(stdscr, top, max(0, min(w - bubble_w,
+                                             cat_x + art_w // 2 - tail_x)),
+                     lines, cp(C_ACCENT, True), tail_x=tail_x)
+    kitty.draw(stdscr, top + len(lines) + 2, cat_x, pose)
+    center(stdscr, min(h - 2, top + len(lines) + 9), "press any key", cp(C_PENDING))
+    stdscr.refresh()
+    stdscr.getch()
+
+
+def menu_cat_painter(profile, day):
     """
     The cat living in the corner of the menu. Returns a `draw_extra` for
     ui.menu, or None for a profile with no cat -- in which case the menu
     is exactly the menu it always was.
+
+    `day` is the mutable per-login state main_menu keeps, so the cat can
+    settle down after a couple of free-play rounds.
     """
     c = cat.Cat.from_profile(profile)
     if c is None:
@@ -424,6 +520,14 @@ def menu_cat_painter(profile):
         if state["ticks"] % POSE_TICKS == 0:
             state["pose"] = c.next_idle()
             state["line"] = c.says(state["pose"])
+
+        # Two stopping cues, both warm and neither a wall. A cat that's
+        # been alone a while is asleep and missing you; a cat that's been
+        # played with is asleep because it's had a lovely day.
+        if day.get("free_play", 0) >= SLEEP_AFTER_ROUNDS:
+            state["pose"], state["line"] = "sleep", "*dreaming*"
+        elif cat.mood(profile) == "missing":
+            state["pose"], state["line"] = "sleep", "*curled up*"
 
         pose = state["pose"]
         art_w, art_h = c.width(pose), c.height(pose)
@@ -443,6 +547,64 @@ def menu_cat_painter(profile):
     return paint
 
 
+def run_mode(stdscr, mode, profile):
+    try:
+        return mode.play(stdscr, profile)
+    except curses.error:
+        ui.message(stdscr,
+                   ["Your terminal is too small for that mode.",
+                    "Try making the window bigger (80x24 minimum)."],
+                   title="OOPS")
+        return None
+
+
+def play_slot(stdscr, profile):
+    """
+    The Play care task. The cat wants to play; which game is entirely the
+    kid's call. This is the autonomy slot the research asks for, sitting
+    inside the structure rather than fighting it.
+    """
+    kitty = cat.Cat.from_profile(profile)
+    name = kitty.name if kitty else "your cat"
+    choice = ui.menu(
+        stdscr,
+        "P L A Y   T I M E",
+        ["%-18s(%s)" % (label, blurb) for _, _, label, blurb in ARCADE]
+        + ["Never mind"],
+        subtitle="%s wants to play -- you pick" % name,
+    )
+    if choice == -1 or choice >= len(ARCADE):
+        return None
+    return run_mode(stdscr, ARCADE[choice][0], profile)
+
+
+def build_menu(profile, gated):
+    """
+    The menu as (label, action) pairs, so the care entry can come and go
+    without every index below it shifting by hand.
+
+    The gate covers free play only. Stats, Badges, Switch and Quit are
+    never locked -- a kid always has a way out of any screen in this game.
+    """
+    kitty = cat.Cat.from_profile(profile)
+    entries = []
+    if kitty:
+        left = cat.tasks_left_today(profile)
+        note = ("all done today!" if not left
+                else "%d thing%s to do" % (len(left), "" if len(left) == 1 else "s"))
+        entries.append(("%-18s(%s)" % ("Care for " + kitty.name, note), ("care", None)))
+
+    for mod, key, label, blurb in ARCADE:
+        note = ("after %s's cared for" % kitty.name) if gated else blurb
+        entries.append(("%-18s(%s)" % (label, note), ("mode", (mod, key))))
+
+    entries.append(("My Badges", ("badges", None)))
+    entries.append(("My Stats", ("stats", None)))
+    entries.append(("Switch player", ("switch", None)))
+    entries.append(("Quit", ("quit", None)))
+    return entries
+
+
 def main_menu(stdscr, all_profiles, profile):
     first_today = profiles.touch_day(profile)
     fresh = badges.check_new(profile)
@@ -459,52 +621,65 @@ def main_menu(stdscr, all_profiles, profile):
     if not profile.get("cat"):
         offer_hatch(stdscr, all_profiles, profile)
 
-    paint_cat = menu_cat_painter(profile)
+    care_callout(stdscr, profile)
+
+    day = {"free_play": 0}
+    paint_cat = menu_cat_painter(profile, day)
+
+    def after_task(task, summary):
+        after_session(stdscr, all_profiles, profile, task, summary)
 
     while True:
+        kitty = cat.Cat.from_profile(profile)
+        gated = kitty is not None and not cat.care_done_today(profile)
+        entries = build_menu(profile, gated)
+
         lvl = lessons.get_level(profile["rocket_level"])
-        sub = "streak %d days  |  best %.0f wpm  |  %d badges" % (
-            profile["current_streak"], profile["best_wpm"], len(profile["badges"])
+        sub = "streak %d days  |  %d fish  |  %d badges" % (
+            profile["current_streak"], profile.get("fish", 0), len(profile["badges"])
         )
         choice = ui.menu(
             stdscr,
             "%s  --  Level %d: %s" % (profile["name"], profile["rocket_level"], lvl["name"]),
-            [
-                "Rocket Builder      (levels, build a ship)",
-                "Dino Chomp          (endless, high score)",
-                "Platform Jumper     (accuracy, don't fall)",
-                "Memorize            (learn it by heart)",
-                "My Badges",
-                "My Stats",
-                "Switch player",
-                "Quit",
-            ],
+            [label for label, _ in entries],
             subtitle=sub,
             art=TITLE_ART,
             draw_extra=paint_cat,
         )
 
-        if choice in (-1, 7):
+        action, payload = ("quit", None) if choice == -1 else entries[choice][1]
+
+        if action == "quit":
             return "quit"
-        if choice == 6:
+        if action == "switch":
             return "switch"
-        if choice == 4:
+        if action == "badges":
             show_badges(stdscr, profile)
             continue
-        if choice == 5:
+        if action == "stats":
             show_stats(stdscr, profile)
             continue
+        if action == "care":
+            care.board(stdscr, profile, play_slot, after_task)
+            continue
 
-        mode = [rocket, dino, platformer, memorize][choice]
-        name = ["rocket", "dino", "platform", "memorize"][choice]
-        try:
-            summary = mode.play(stdscr, profile)
-        except curses.error:
-            ui.message(stdscr,
-                       ["Your terminal is too small for that mode.",
-                        "Try making the window bigger (80x24 minimum)."],
-                       title="OOPS")
-            summary = None
+        mode, name = payload
+        if gated:
+            # Not a scolding and not a dead end: it says what opens it,
+            # and the care board is one keypress away.
+            ui.message(
+                stdscr,
+                ["%s would like to be looked after first." % kitty.name,
+                 "",
+                 "Head to the care board -- it's quick,",
+                 "and then everything's open."],
+                title="SOON!",
+                art=kitty.art(cat.mood_pose(cat.mood(profile))),
+            )
+            continue
+
+        summary = run_mode(stdscr, mode, profile)
+        day["free_play"] += 1
         after_session(stdscr, all_profiles, profile, name, summary)
 
 

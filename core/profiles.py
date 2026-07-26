@@ -46,6 +46,9 @@ def _blank_profile(name):
         # Empty until the kid hatches one; saves from before the cat
         # existed get offered the hatch on their next login.
         "cat": {},
+        # Earned by volume typed, never by hitting a score. Spendable in
+        # the Phase 5 shop; additive-only, never taken away.
+        "fish": 0,
     }
 
 
