@@ -23,7 +23,35 @@ fact-checking, and what each one buys us:
 | Game-first format holds its own against structured curricula for ages 8–11; TypingClub's engagement comes from structure/feedback/rewards, not drill content | High / Medium | Keep the arcade format. Invest in feedback juice, not lesson authoring. |
 
 Competitor-mechanic specifics (Nitro Type economies, ZType waves, etc.) did
-NOT survive verification — treat them as inspiration, not evidence.
+NOT survive verification in that pass — treat them as inspiration, not evidence.
+
+### 1.1 Second research pass — pet games & mini-games [R2]
+
+A follow-up pass (four parallel research agents, July 2026; full reports in
+`docs/research/`) covered Tamagotchi's mechanics and psychology, the typing
+mini-game landscape, and how pet games structurally integrate care with play.
+It is single-pass web research, not adversarially verified — but it converges
+hard with the verified findings above. Headlines:
+
+- A controlled study (N=51, ages 9–11 — exactly our band) found virtual-pet
+  care **measurably raises children's empathy**, scaling with the amount of
+  care given. Caring creates the bond ("nurturance is the killer app" —
+  Turkle). Our care-tasks-as-gameplay premise is the evidence-backed shape.
+- Bandai **softened every harsh Tamagotchi mechanic** (permanent death,
+  invisible sickness, no pause) generation after generation, while adding an
+  economy, cosmetics, and generational play. Documented 1997 child grief and
+  school bans came precisely from the punishing, no-pause design.
+- The kids'-app dark-pattern literature specifically flags **sad-pet emotional
+  pressure** as manipulation; Finch's freeze-don't-reverse, reunion-framed
+  model is the validated wholesome end. Duolingo-style guilt is the anti-pattern.
+- The typing mini-game catalog found five skill territories our modes don't
+  touch: **word production** (guessing, anagrams), **rhythm**, **racing a
+  visible opponent**, **dual-task**, and **trivia-answer typing**.
+- The care-loop structural survey found our gaps are almost all in the
+  **layers above the daily loop**: collections, show-up bonuses, dual
+  progression, rotating stock, cosmetic depth (see §5.4).
+
+Design changes from this pass are integrated below, tagged **[R2]**.
 
 ## 2. Design principles
 
@@ -35,7 +63,9 @@ Everything below follows from the table above. When in doubt, come back here.
 2. **Additive-only progress.** Fish, toys, tricks, growth, badges — earned
    things never decay, expire, or get taken away. Daily care gauges (§3.3)
    drift down by design, but a low gauge reads as "wants attention," never
-   as damage: no death, no sickness, no rarity tiers.
+   as damage: no death, no sickness, no rarity tiers. **Absence freezes
+   progress, never reverses it, and a return is a reunion, never a
+   reprimand** (the Finch model; the inverse of Duolingo guilt). [R2]
 3. **Competence must be visible.** The kid should be able to *see* themselves
    getting better without reading numbers: keys turning green, the cat
    learning tricks, the trend line climbing.
@@ -51,6 +81,11 @@ Everything below follows from the table above. When in doubt, come back here.
 7. **Terminal-native.** Everything must read at 80×24, in the 8 bright-capable
    colors of the bare Pi console (`TERM=linux`), in pure ASCII, at the ~30fps
    `napms(33)` cadence the modes already use.
+8. **No dark patterns, ever.** [R2] Being offline already rules out ads, IAP,
+   and telemetry — keep the spirit too: no guilt messaging, no sad-pet
+   emotional pressure (a documented kids'-app manipulation pattern), no fake
+   scarcity or expiring offers, no mechanic whose job is manufacturing
+   anxiety. Rotating shop stock returns later; missing a week costs nothing.
 
 ## 3. The cat
 
@@ -96,11 +131,19 @@ Trait axes (all lateral, all equal-value):
 | Build | loaf, lanky, round; ear and tail variants |
 | Personality | weights idle behavior: **lazy** (naps, stretches), **chaotic** (knocks an ASCII cup off a shelf), **hunter** (stalks the menu cursor), **cuddly** (sits close, purrs) |
 
+**Favorites:** personality also picks the cat's favorite treat and favorite
+toy — giving its favorite earns a delighted bonus reaction (Tamagotchi's
+favorites mechanic). Deepens the sense that each cat is an individual and
+gives the shop texture. [R2]
+
 **Slow-reveal genes:** cats hatch as kittens with partial trait expression.
 Full markings and adult build express as adaptive-engine milestones are hit
 (§4), giving the randomization a second act months later. Growth is framed
 as time-plus-care, shown as "look what she's becoming" — informational,
-never a performance payout.
+never a performance payout. One **secret expression** exists — star-shimmer
+markings that only appear once all 26 letters are mastered (Tamagotchi's
+hidden-character delight, adapted to stay lateral: it's a surprise for
+finishing the journey, not a tier above other cats). [R2]
 
 ### 3.3 Care gauges — wants, not wounds
 
@@ -196,12 +239,23 @@ open game → cat greets you, calls out today's needs (from gauges, §3.3)
       each task is a 1-3 minute typing activity; all of them together
       stay under ~10 minutes:
         Food, Water, Pets, Play, Clean — see mapping below
-      done → gauges full, streak ticks, fish earned, cat delighted,
+      all five done → completion celebration + small bonus (the
+      finish-the-checklist payoff, AC's Nook Miles+ pattern) [R2],
+      gauges full, streak ticks, fish earned, cat delighted,
       trick popup if a key went green
   └─ FREE PLAY — all modes open, kid's pure choice. No further gates.
   └─ After a session or two, the cat yawns and curls up = stopping cue.
-      Free play never locks; the sleepy cat is a signal, not a wall.
+      Free play never locks; the sleepy cat is a signal, not a wall —
+      and the game says it warmly: "What a day! Mochi is dreaming
+      about you." An explicit, positive done-for-today state. [R2]
 ```
+
+**Show-up gift** [R2]: on the first login of each day — before any typing —
+the cat brings the kid something small it "found": a feather, a bottle cap,
+a pretty leaf for the scrapbook (§5.4), escalating gently over consecutive
+days (Animal Crossing / Trudy's Surprise pattern). This rewards *showing up*,
+independent of performance — exactly what a struggling typist needs on a bad
+day, and it makes opening the game feel like being greeted, not billed.
 
 The care board is the pedagogical payload wearing a chore chart costume:
 it guarantees the daily distributed-practice dose and lets each task train
@@ -244,26 +298,58 @@ Hard limits that keep this on the right side of the research:
   this — and the win-it-back exercise is literally the rhythm/evenness
   drill in costume.
 
-### 5.3 The shop — weekly upgrades
+### 5.3 The shop — weekly upgrades, daily peek
 
 Every week (real-time, e.g. Mondays) the shop rotates in a couple of new
-items. Fish are the currency, and fish are earned by *words typed* —
-volume, not performance thresholds — so buying power comes from showing up,
-and the shop never becomes a skill leaderboard in disguise.
+items, plus **one daily-rotating featured item** (deterministic from the
+date) so there's a reason to peek every day, not just Mondays [R2]. Fish
+are the currency, and fish are earned by *words typed* — volume, not
+performance thresholds — so buying power comes from showing up, and the
+shop never becomes a skill leaderboard in disguise.
 
 | Item class | Examples | Effect |
 |---|---|---|
 | **Toys** | yarn ball, feather wand, cardboard box | Unlock mini-game variants and new idle animations; permanent |
-| **Treats** | salmon bite, catnip cookie | Consumable power-ups the kid chooses to activate: a mistake shield in the no-backspace platformer, a combo saver in Dino Chomp, a score bonus round |
+| **Treats** | salmon bite, catnip cookie, birthday feast | Consumable power-ups the kid chooses to activate: a mistake shield in the no-backspace platformer, a combo saver in Dino Chomp, a score bonus round. Quality tiers (small/fancy/feast) with prices to match, and each cat's personality-driven *favorite* earns a bonus reaction — shopping becomes a decision, not a formality [R2] |
+| **Accessories** [R2] | collar, bandana, tiny hat | Worn on the cat everywhere it renders (2–3 ASCII accessory slots) — the lasting, visible record of effort that consumables can't be (Tamagotchi Uni's slot system) |
 | **Litter tiers** | basic → clumping → self-raking deluxe | Streak insurance: covers 1–2 missed care days (Duolingo streak-freeze pattern). Bought *ahead of time* — protection, not pardon |
 | **Decor** | rug, window perch, plant to knock over | Pure cosmetics for the cat's corner of the menu; the visible record of months of care |
 
+One **big-ticket dream item** is always visible — the Deluxe Cat Tree, priced
+around three weeks of fish — an anchor for saving and deferred gratification
+(Tamagotchi's 30,000-GP Royal Costume pattern) [R2].
+
 Design guards: treats are *buffers and bonuses only* — no item ever makes
-the typing itself easier or auto-completes practice. Prices stay small
-(days, not weeks, of fish). New-item announcements come from the cat
-("The shop has a feather wand this week!"), which doubles as a weekly
-return hook that is additive, not FOMO — items rotate back in later, so
-missing a week costs nothing permanently.
+the typing itself easier or auto-completes practice. Everyday prices stay
+small (days, not weeks, of fish). New-item announcements come from the cat
+("The shop has a feather wand this week!"), which doubles as a return hook
+that is additive, not FOMO — items rotate back in later, so missing a week
+costs nothing permanently.
+
+### 5.4 Long-horizon layers [R2]
+
+The structural lesson from Animal Crossing and Neopets: a solved daily loop
+flatlines in months without week/month/year-scale goals stacked above it.
+All of these are additive and cheap:
+
+- **The Scrapbook** — collection albums, pure accumulation, nothing expires:
+  fish species caught in the feed drill (rarer species hooked by typing
+  rarer letters and bigrams — the Q-fish is a legend), toys owned, outfits,
+  tricks learned, contest ribbons, show-up gifts found. The month-scale
+  completion ladder the shop alone can't provide.
+- **The contest ladder** (Nintendogs pattern) — optional ranked typing cups,
+  Beginner → Champion: short WPM/accuracy/burst trials against the game's
+  bars (never against a sibling's name), 2–3 entries a day, prize fish plus
+  a ribbon for the scrapbook. The aspirational track for kids who want to
+  push, cleanly separated from the daily care floor.
+- **Milestone unlocks** (dual progression, Nintendogs' points pattern) —
+  cumulative totals (words ever typed, care days, letters mastered) unlock
+  cosmetics fish can't buy. Every session advances two bars: spendable fish
+  and unspendable mastery.
+- **Weekly & seasonal rituals** — a weekend "special delivery" fish bonus;
+  date-keyed seasonal touches (a pumpkin in the cat's corner in October, a
+  cozy scarf in winter). Keyed off the Pi's clock, degrading gracefully if
+  the clock is wrong; nothing is missable — seasonal items return yearly.
 
 ## 6. Modes
 
@@ -286,6 +372,25 @@ New cat-native modes, in priority order:
 3. **Pantry Defense** — Typer Shark's approach-tension: ASCII mice sneak
    toward the food bowl, each labeled with a word; type it to shoo them.
    (Dino Chomp's engine with words instead of letters.)
+4. **Mystery Word** [R2] — hangman-style word *production* (Cryptmaster's
+   verified-fun core): the cat paws at a covered dish; the kid guesses
+   letters, then types the full word to reveal the treat inside. The first
+   mode where the kid *produces* the word instead of copying it — trains
+   spelling-from-deduction and vocabulary.
+5. **Alphabet Soup** [R2] — anagram word-builder (TextTwist): letters float
+   in the soup bowl; make as many words as you can before the soup cools.
+   Needs a bundled word list for validation. The only mode that trains word
+   construction.
+6. **Whisker Quiz** [R2] — type-the-answer trivia (Typing of the Dead's
+   boss format): questions from a parent-editable `data/quiz.txt` — spelling
+   words, math facts, science. The cat asks; the kid types the answer.
+   Turns the tutor into a general study tool, same pattern as passages.txt.
+
+Future candidates logged from the catalog (docs/research/): dual-task
+dodge-and-type (advanced kids), a roguelike perk-draft wrapper over existing
+drills, vs-AI sabotage races, and nonsense-string variants as a difficulty
+modifier. The catalog also confirmed our Pets purr drill is the seed of a
+full rhythm-typing mode if it tests well.
 
 ## 7. Juice
 
@@ -330,7 +435,10 @@ modes/
   rocket|dino|platformer|memorize.py   touched only for §6 integrations
   care.py             NEW — care board + the Water/Pets/Clean micro-activities
   feed.py             NEW — Food task: daily adaptive drill (fishing skin)
-  yarn.py, pantry.py  NEW — later phases
+  yarn.py, pantry.py, mystery.py, soup.py, quiz.py   NEW — phase 6
+data/
+  quiz.txt            NEW — parent-editable Q&A for Whisker Quiz [R2]
+  words.txt           NEW — bundled word list for Alphabet Soup validation [R2]
 ```
 
 The mode contract is untouched: `play(stdscr, profile) -> summary dict`.
@@ -407,12 +515,17 @@ Each phase is independently shippable; kids playtest after every one.
    Food/Play first, add Water/Pets/Clean as their micro-games land.
 4. **Juice pass** — `core/fx.py`; egg burst, keystroke sparks, confetti,
    purr wisps threaded through existing modes.
-5. **Shop & wary state** — `core/shop.py` weekly rotation, treats/toys/
-   litter/decor, fish economy; wary-cat win-it-back beat (needs the rhythm
-   drill from the care board, hence after phase 3).
-6. **Cat mini-games** — Yarn Chase, Pantry Defense; platformer renders the
-   kid's cat as its jumper.
-7. **Ghosts & growth** — ghost racing, slow-reveal genes, growth stages.
+5. **Shop & wary state** — `core/shop.py` weekly rotation + daily featured
+   item, treats (with tiers & favorites)/toys/accessories/litter/decor,
+   aspirational big-ticket item, fish economy; wary-cat win-it-back beat
+   (needs the rhythm drill from the care board, hence after phase 3).
+6. **Cat mini-games** — Yarn Chase, Pantry Defense, Mystery Word, Alphabet
+   Soup, Whisker Quiz; platformer renders the kid's cat as its jumper.
+7. **Ghosts & growth** — ghost racing, slow-reveal genes, growth stages,
+   the secret full-alphabet expression.
+8. **Long-horizon layers** [R2] — the Scrapbook collection albums, the
+   contest ladder, milestone unlocks (dual progression), weekly/seasonal
+   rituals, show-up gift escalation.
 
 ## 11. Open questions (future research candidates)
 
@@ -421,6 +534,12 @@ Each phase is independently shippable; kids playtest after every one.
 - Do virtual unlockables behave like tangible rewards (undermining) or
   informational feedback for kids? We designed conservatively; watch for
   kids grinding *for fish* instead of playing.
-- Verified competitor mechanics never materialized — a future deep-research
-  pass on developer postmortems (Tux Typing source, Typer Shark design
-  retrospectives) could still pay off.
+- ~~Verified competitor mechanics never materialized~~ — largely resolved by
+  the second research pass (docs/research/typing-minigame-catalog.md), which
+  cataloged the mechanic landscape and identified the genuine gaps now in §6.
+  Remaining: the catalog is single-pass research; playtesting outranks it.
+- The wary-cat beat sits between Finch's zero-consequence model and
+  Nintendogs' visible-but-reversible consequences. Both are field-tested;
+  watch the kids' reaction to the first wary encounter closely — if it reads
+  as rejection rather than "cats being cats," drop to the Finch end (purely
+  warmer reunion, no win-back beat).
