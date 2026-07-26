@@ -31,14 +31,54 @@ from core import lessons
 FREQ_ORDER = "enitrlsauodychgmpbkvwfzxqj"
 START_ALPHABET = "enitrl"
 
-TARGET_MS = 600.0   # slower than this scores zero on speed
-FLOOR_MS = 150.0    # faster than this is a full speed score
+# The journey this game is tuned around: a kid arrives hunting and
+# pecking at roughly 5 wpm and leaves touch-typing the whole keyboard at
+# 40. Both ends are stated here because every number below is derived
+# from them.
+START_WPM = 5.0     # where a beginner actually starts
+MASTER_WPM = 40.0   # the goal: 40 wpm on the full keyboard
+
+# 5 wpm scores zero, 40 wpm scores full. The span is the whole journey,
+# so a kid's heatmap keeps visibly moving the entire way up -- it used to
+# span 20..80 wpm, which meant a beginner saw a flat wall of nothing.
+TARGET_MS = 12000.0 / START_WPM     # 2400 ms
+FLOOR_MS = 12000.0 / MASTER_WPM     # 300 ms
+
 SPEED_WEIGHT = 0.6
 ACC_WEIGHT = 0.4
 ERR_CEILING = 0.5   # a 50%-wrong key scores zero on accuracy
-GREEN = 0.8         # conf at or above this = mastered
 EMA_ALPHA = 0.3     # weight of the newest session in the moving average
-MIN_SAMPLES = 20    # a key needs this many hits before it can go green
+
+# --- two different questions, which used to share one answer ---------
+#
+# GREEN is mastery: "you type this key at the goal speed, accurately."
+# It drives the heatmap, the trick celebrations and the secret, and it is
+# meant to be hard -- all 26 green IS the win condition.
+#
+# READY is the unlock gate: "you've met this key enough to be offered a
+# new one." It has to be reachable by a kid still hunting and pecking,
+# because until it is, nothing downstream opens at all.
+#
+# Conflating the two is what made the game unplayable: every unlock
+# demanded the win condition, so a simulated year produced zero new
+# letters for every persona, including a fluent 40 wpm typist whose
+# reaches landed at 325 ms against a 300 ms bar. See tools/simulate.py.
+
+GREEN = 0.9         # conf at or above this, AND at goal speed = mastered
+
+# Mastery is per key, but the goal is 40 wpm across real text -- and the
+# keys under your fingers are always quicker than t, y, b and n. Holding
+# every individual key to 40 wpm would mean the awkward ones needed 45+
+# to compensate, so a kid genuinely typing 40 wpm would still be told
+# they hadn't mastered the alphabet. The allowance is what makes "all 26
+# green" mean the thing it's supposed to mean.
+MASTER_WPM_PER_KEY = 36.0
+MASTER_MS = 12000.0 / MASTER_WPM_PER_KEY   # 333 ms
+
+MIN_SAMPLES = 20    # hits before a key can go green
+
+READY_SAMPLES = 40  # hits before the unlock gate will judge a key at all
+READY_ACC = 0.85    # get it right this often and you've earned a new letter
 
 MIN_WORD, MAX_WORD = 3, 7
 REAL_WORD_SHARE = 0.3   # the rest of a lesson is generated pseudo-words
@@ -119,10 +159,39 @@ def confidence(entry):
 
 
 def is_green(entry):
-    """Mastered? Needs both a good score and enough evidence behind it."""
+    """
+    Mastered: at the goal speed, accurately, with evidence behind it.
+
+    The speed gate is explicit rather than left to the blend. Mastery is
+    supposed to mean "40 wpm on this key", and a weighted score can be
+    dragged over the line by accuracy alone -- which would quietly turn
+    the win condition into something you can reach at 20 wpm.
+    """
     if not entry:
         return False
-    return entry.get("n", 0) >= MIN_SAMPLES and entry.get("conf", 0.0) >= GREEN
+    if entry.get("n", 0) < MIN_SAMPLES:
+        return False
+    ms = entry.get("ms")
+    if ms is None or ms > MASTER_MS:
+        return False
+    return entry.get("conf", 0.0) >= GREEN
+
+
+def is_ready(entry):
+    """
+    Ready to be offered a new letter. NOT mastery -- see the note above.
+
+    Deliberately speed-blind. A kid hunting and pecking at 5 wpm is
+    typing correctly, just slowly, and there is no pedagogical reason to
+    withhold the rest of the alphabet from them until they get fast. Speed
+    is what `is_green` and the heatmap are for; this only asks whether
+    they can hit the key on purpose.
+    """
+    if not entry:
+        return False
+    if entry.get("n", 0) < READY_SAMPLES:
+        return False
+    return (1.0 - entry.get("err", 1.0)) >= READY_ACC
 
 
 def ensure(profile):
@@ -142,10 +211,21 @@ def key_entry(profile, ch):
 
 
 def key_state(profile, ch):
-    """'green' | 'learning' | 'locked' -- what the heatmap paints."""
+    """
+    'green' | 'steady' | 'learning' | 'locked' -- what the heatmap paints.
+
+    'steady' is the middle rung, and it exists because mastery now means
+    40 wpm: without it a kid would sit on the same colour for the better
+    part of two years while genuinely getting better every week. Steady
+    says "you can hit this key on purpose now" -- the thing that actually
+    earned them the next letter -- and green stays for the goal.
+    """
     if ch not in alphabet(profile):
         return "locked"
-    return "green" if is_green(key_entry(profile, ch)) else "learning"
+    entry = key_entry(profile, ch)
+    if is_green(entry):
+        return "green"
+    return "steady" if is_ready(entry) else "learning"
 
 
 def _next_letter(unlocked):
@@ -204,12 +284,17 @@ def merge_keys(profile, session_keys):
     )
 
     # One letter per merge: the letter we just unlocked has no data, so
-    # it can't be green, so the loop stops on its own. The cap is belt
+    # it can't be ready, so the loop stops on its own. The cap is belt
     # and braces against a future change making that untrue.
+    #
+    # This asks `is_ready`, not `is_green`. Gating the next letter on
+    # mastery meant gating it on the game's win condition, which no
+    # beginner could clear -- and since every unlocked letter had to
+    # clear it, one hard reach stalled a kid forever.
     unlocked = []
     for _ in range(len(FREQ_ORDER)):
         current = alphabet(profile)
-        if not all(is_green(keys.get(c)) for c in current):
+        if not all(is_ready(keys.get(c)) for c in current):
             break
         nxt = _next_letter(current)
         if nxt is None:

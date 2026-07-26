@@ -148,6 +148,19 @@ class Persona:
 
 
 PERSONAS = [
+    # The one the game is actually for: arrives hunting and pecking,
+    # leaves touch-typing. If this persona doesn't complete the journey,
+    # the tuning is wrong however good the others look.
+    Persona("journey", "THE JOURNEY: 5 wpm hunting -> 40 wpm touch",
+            wpm_start=5, wpm_ceiling=40, technique="hunt",
+            reach_penalty=0.30, err_start=0.34, err_floor=0.03,
+            familiar=300, words_per_day=90,
+            note="day one beginner who sticks with it -- the success criteria"),
+    Persona("hunt_5", "Day one: hunt-and-peck, 5 wpm",
+            wpm_start=5, wpm_ceiling=6, technique="hunt",
+            reach_penalty=0.25, err_start=0.36, err_floor=0.12,
+            familiar=360, words_per_day=60,
+            note="where every kid starts; probes whether anything opens at all"),
     Persona("hunt_10", "Hunt-and-peck, 10 wpm",
             wpm_start=9, wpm_ceiling=12, technique="hunt",
             reach_penalty=0.25, err_start=0.30, err_floor=0.09,
@@ -328,12 +341,22 @@ def green_ceiling_ms():
     """
     The slowest a key can be and still reach mastery, at 100% accuracy.
 
-    Pure arithmetic from the tuning constants -- no persona involved, so
-    this number is a property of the shipping engine rather than of any
-    guess made in this file.
+    Two constraints bind: the explicit speed gate, and the blended score
+    needing to clear GREEN. Whichever is tighter is the real ceiling.
+    Pure arithmetic from the engine's own constants -- no persona
+    involved, so this is a property of the shipping code rather than of
+    any guess made in this file.
     """
     need = (adaptive.GREEN - adaptive.ACC_WEIGHT) / adaptive.SPEED_WEIGHT
-    return adaptive.TARGET_MS - need * (adaptive.TARGET_MS - adaptive.FLOOR_MS)
+    from_blend = adaptive.TARGET_MS - need * (adaptive.TARGET_MS -
+                                              adaptive.FLOOR_MS)
+    return min(adaptive.MASTER_MS, from_blend)
+
+
+def ready_ceiling_note():
+    """The unlock gate, for contrast. It has no speed component at all."""
+    return ("unlocking needs %d hits at %.0f%% accuracy -- no speed "
+            "requirement" % (adaptive.READY_SAMPLES, adaptive.READY_ACC * 100))
 
 
 def zone(ch):
@@ -366,6 +389,7 @@ def keys_table(letters=None):
     print("PER-KEY CEILING -- letters %r" % letters)
     print("mastery needs <= %.0f ms/key (~%.0f wpm) even at 100%% accuracy"
           % (ceiling, ms_to_wpm(ceiling)))
+    print("%s" % ready_ceiling_note())
     print("=" * 72)
     print("  %-38s %s" % ("persona", "  ".join(letters)))
     for persona in PERSONAS:

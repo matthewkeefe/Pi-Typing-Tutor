@@ -313,6 +313,7 @@ def draw_keyboard(stdscr, top, profile):
 
     attrs = {
         "green": cp(C_CORRECT, True),
+        "steady": cp(C_ACCENT, True),
         "learning": cp(C_WARN, True),
         "locked": cp(C_PENDING) | curses.A_DIM,
     }
@@ -324,9 +325,10 @@ def draw_keyboard(stdscr, top, profile):
             safe_addstr(stdscr, top + 1 + r, x0 + r + i * 2, ch.upper(), attr)
 
     legend = top + 1 + len(KEY_ROWS)
-    safe_addstr(stdscr, legend, x0, "green = mastered", cp(C_CORRECT))
-    safe_addstr(stdscr, legend, x0 + 20, "yellow = learning", cp(C_WARN))
-    safe_addstr(stdscr, legend, x0 + 42, "blue = not yet", cp(C_PENDING))
+    safe_addstr(stdscr, legend, x0, "green = fast", cp(C_CORRECT))
+    safe_addstr(stdscr, legend, x0 + 15, "cyan = steady", cp(C_ACCENT))
+    safe_addstr(stdscr, legend, x0 + 31, "yellow = learning", cp(C_WARN))
+    safe_addstr(stdscr, legend, x0 + 52, "blue = not yet", cp(C_PENDING))
 
 
 def show_stats(stdscr, profile):

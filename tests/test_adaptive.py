@@ -36,9 +36,20 @@ class TestConfidence(unittest.TestCase):
         self.assertGreaterEqual(conf, adaptive.GREEN)
 
     def test_slow_is_not_green(self):
-        conf = adaptive.confidence({"ms": 900.0, "err": 0.0})
+        """
+        TARGET_MS is the *start* of the journey (5 wpm), not a mid-point:
+        scoring zero on speed now means typing as slowly as a beginner
+        on day one, which is the whole span the heatmap has to show.
+        """
+        conf = adaptive.confidence({"ms": adaptive.TARGET_MS, "err": 0.0})
         self.assertLess(conf, adaptive.GREEN)
         self.assertAlmostEqual(conf, adaptive.ACC_WEIGHT)
+
+    def test_a_beginners_pace_still_scores_something(self):
+        """A kid at 10 wpm should see the heatmap move, not a flat wall."""
+        conf = adaptive.confidence({"ms": 1200.0, "err": 0.0})
+        self.assertGreater(conf, adaptive.ACC_WEIGHT)
+        self.assertLess(conf, adaptive.GREEN)
 
     def test_error_rate_drags_it_down(self):
         clean = adaptive.confidence({"ms": 160.0, "err": 0.0})
@@ -57,10 +68,25 @@ class TestConfidence(unittest.TestCase):
             self.assertLessEqual(conf, 1.0)
 
     def test_green_needs_evidence(self):
-        entry = {"n": adaptive.MIN_SAMPLES - 1, "conf": 0.99}
+        entry = {"n": adaptive.MIN_SAMPLES - 1, "conf": 0.99,
+                 "ms": adaptive.MASTER_MS - 20}
         self.assertFalse(adaptive.is_green(entry))
         entry["n"] = adaptive.MIN_SAMPLES
         self.assertTrue(adaptive.is_green(entry))
+
+    def test_green_needs_the_goal_speed_not_just_a_good_score(self):
+        """
+        Mastery means 40 wpm. A weighted score can be dragged over the
+        line by accuracy alone, so the speed gate is explicit -- without
+        it the win condition would be reachable at half the target.
+        """
+        entry = {"n": 99, "conf": 0.99, "ms": adaptive.MASTER_MS + 60}
+        self.assertFalse(adaptive.is_green(entry))
+        entry["ms"] = adaptive.MASTER_MS - 1
+        self.assertTrue(adaptive.is_green(entry))
+
+    def test_a_key_never_typed_is_never_green(self):
+        self.assertFalse(adaptive.is_green({"n": 99, "conf": 0.99, "ms": None}))
 
 
 class TestMerge(unittest.TestCase):
@@ -107,11 +133,30 @@ class TestMerge(unittest.TestCase):
         self.assertEqual(p["alphabet"], adaptive.START_ALPHABET + "s")
 
     def test_one_weak_letter_blocks_the_unlock(self):
+        """
+        Unlocking is gated on accuracy now, not speed, so "weak" here
+        means a key the kid keeps getting wrong -- being slow on it is
+        no longer a reason to withhold the rest of the alphabet.
+        """
         p = blank_profile()
-        adaptive.merge_keys(p, session_keys("enitr", 40, ms=170.0))
-        out = adaptive.merge_keys(p, session_keys("l", 40, ms=900.0))
+        adaptive.merge_keys(p, session_keys("enitr", 60, ms=170.0))
+        out = adaptive.merge_keys(p, session_keys("l", 60, err_rate=0.5))
         self.assertEqual(out["unlocked"], [])
         self.assertEqual(p["alphabet"], adaptive.START_ALPHABET)
+
+    def test_being_slow_does_not_block_the_unlock(self):
+        """
+        The fix this whole tuning pass exists for. A 5 wpm hunt-and-peck
+        beginner types correctly, just slowly; withholding the alphabet
+        until they get fast stalled every persona in tools/simulate.py
+        for a simulated year.
+        """
+        p = blank_profile()
+        slow = 12000.0 / 6.0        # about 6 wpm
+        out = adaptive.merge_keys(
+            p, session_keys(adaptive.START_ALPHABET, 60, ms=slow))
+        self.assertEqual(out["unlocked"], ["s"])
+        self.assertEqual(out["green"], [], "slow keys must not be mastered")
 
     def test_green_is_only_reported_on_the_way_up(self):
         p = blank_profile()
@@ -135,10 +180,23 @@ class TestMerge(unittest.TestCase):
 
 class TestFocusAndWeighting(unittest.TestCase):
     def test_focus_is_the_weakest_unlocked_letter(self):
+        """
+        The weak letter has to be *inaccurate* to keep the alphabet
+        still: a merely slow one no longer blocks an unlock, and a
+        freshly unlocked letter takes the focus for itself.
+        """
         p = blank_profile()
         adaptive.merge_keys(p, session_keys("enitr", 40, ms=170.0))
-        adaptive.merge_keys(p, session_keys("l", 40, ms=900.0))
+        adaptive.merge_keys(p, session_keys("l", 40, err_rate=0.5))
+        self.assertEqual(p["alphabet"], adaptive.START_ALPHABET)
         self.assertEqual(adaptive.focus_letter(p), "l")
+
+    def test_a_freshly_unlocked_letter_takes_the_focus(self):
+        p = blank_profile()
+        out = adaptive.merge_keys(
+            p, session_keys(adaptive.START_ALPHABET, 60, ms=170.0))
+        self.assertEqual(out["unlocked"], ["s"])
+        self.assertEqual(adaptive.focus_letter(p), "s")
 
     def test_untyped_letters_sort_first(self):
         p = blank_profile()

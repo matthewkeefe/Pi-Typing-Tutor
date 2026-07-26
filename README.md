@@ -391,17 +391,31 @@ under the modes rather than as a screen of its own:
 - Every drill keystroke a mode reports (`sess.keystroke(correct, ch=expected)`)
   becomes per-key statistics: how often that key is missed, how long it takes.
   Modes that don't pass `ch` are unaffected.
-- Each key gets a 0..1 confidence blending speed and accuracy. At 0.8 it's
-  **green** — mastered.
-- Kids start with six letters (`e n i t r l`). When all of them are green,
+- Each key gets a 0..1 confidence blending speed and accuracy, scaled across
+  the whole journey this game is for: **5 wpm scores zero, 40 wpm scores full.**
+- Two different bars, for two different questions. **Ready** is the unlock gate:
+  40 hits at 85% accuracy, with *no speed requirement at all* — a kid hunting
+  and pecking is typing correctly, just slowly, and there's no reason to withhold
+  the alphabet from them until they get fast. **Green** is mastery: 40 wpm on
+  that key, accurately. All 26 green is the win condition.
+- Kids start with six letters (`e n i t r l`). When all of them are *ready*,
   exactly one new letter unlocks, down the English frequency list.
 - Drill words are pronounceable pseudo-words generated from an English bigram
   table, restricted to the unlocked letters, with the kid's weakest letter
   worked into every word.
 
-You can watch all of it on the stats screen: the keyboard heatmap paints
-mastered keys green, unlocked-but-learning yellow, and not-yet-reached blue.
-Dino Chomp uses the same data to spawn the letters a kid is worst at.
+You can watch all of it on the stats screen: the keyboard heatmap paints keys
+green when they're fast, cyan when they're steady (you can hit it on purpose —
+this is what earned you the next letter), yellow while still learning, and blue
+for not yet reached. The cyan rung matters: mastery means 40 wpm, so without a
+middle state a kid would sit on one colour for the better part of two years
+while genuinely improving every week. Dino Chomp uses the same data to spawn the
+letters a kid is worst at.
+
+These numbers were set with `tools/simulate.py`, not by guessing. The simulated
+5-wpm-to-40-wpm beginner unlocks their seventh letter on day 13, opens Alphabet
+Soup around day 53, has a grown-up cat by day 137, and finishes the alphabet on
+day 209 — with mastery arriving much later, which is the point.
 
 Old save files pick this up automatically — the profile gains `keys` and
 `alphabet` on first load.

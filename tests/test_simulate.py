@@ -159,14 +159,36 @@ class TestGreenCeiling(unittest.TestCase):
         self.assertGreaterEqual(adaptive.confidence(entry), adaptive.GREEN - 1e-9)
 
     def test_a_hair_slower_than_the_ceiling_is_not_masterable(self):
+        """
+        Asserted through is_green rather than confidence: past the gate
+        the blended score is still fine, and it's the explicit speed
+        check that does the rejecting. That's the point of having it.
+        """
         entry = {"n": adaptive.MIN_SAMPLES + 5, "err": 0,
                  "ms": simulate.green_ceiling_ms() + 25}
-        self.assertLess(adaptive.confidence(entry), adaptive.GREEN)
+        entry["conf"] = adaptive.confidence(entry)
+        self.assertFalse(adaptive.is_green(entry))
 
-    def test_the_ceiling_is_currently_about_forty_wpm(self):
-        """If tuning changes deliberately, update this and the docs."""
-        self.assertAlmostEqual(simulate.ms_to_wpm(simulate.green_ceiling_ms()),
-                               40.0, delta=1.0)
+    def test_the_ceiling_is_the_goal_speed(self):
+        """
+        Mastery is the win condition: 40 wpm across the keyboard, with a
+        small allowance because reaches are always slower than the keys
+        under your fingers. If tuning moves deliberately, update this.
+        """
+        wpm = simulate.ms_to_wpm(simulate.green_ceiling_ms())
+        self.assertAlmostEqual(wpm, adaptive.MASTER_WPM_PER_KEY, delta=1.0)
+        self.assertLess(wpm, adaptive.MASTER_WPM + 1)
+
+    def test_unlocking_has_no_speed_requirement_at_all(self):
+        """
+        The fix this harness produced. A 5 wpm beginner must be able to
+        unlock letters; gating that on speed stalled every persona for a
+        simulated year.
+        """
+        slow = {"n": adaptive.READY_SAMPLES, "err": 0.05,
+                "ms": simulate.wpm_to_ms(5)}
+        self.assertTrue(adaptive.is_ready(slow))
+        self.assertFalse(adaptive.is_green(slow))
 
 
 class TestCLI(unittest.TestCase):

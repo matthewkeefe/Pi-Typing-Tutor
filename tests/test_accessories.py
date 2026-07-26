@@ -246,7 +246,9 @@ class TestTheSecret(unittest.TestCase):
     def _mastered(self):
         p = a_profile()
         p["alphabet"] = adaptive.FREQ_ORDER
-        p["keys"] = {ch: {"n": 50, "conf": 0.99} for ch in adaptive.FREQ_ORDER}
+        p["keys"] = {ch: {"n": 50, "conf": 0.99,
+                          "ms": adaptive.MASTER_MS - 20}
+                     for ch in adaptive.FREQ_ORDER}
         return p
 
     def test_it_needs_the_whole_alphabet(self):
@@ -256,7 +258,7 @@ class TestTheSecret(unittest.TestCase):
 
     def test_it_needs_every_key_green(self):
         p = self._mastered()
-        p["keys"]["q"] = {"n": 50, "conf": 0.1}
+        p["keys"]["q"] = {"n": 50, "conf": 0.1, "ms": 900.0}
         self.assertFalse(cat.secret_expressed(p))
 
     def test_it_expresses_when_everything_is_mastered(self):
