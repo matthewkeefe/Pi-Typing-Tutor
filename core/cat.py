@@ -72,6 +72,16 @@ BUILDS = ["loaf", "lanky", "round"]
 TAILS = ["curl", "straight", "puff"]
 PERSONALITIES = ["lazy", "chaotic", "hunter", "cuddly"]
 
+# A cat is a he or a she, drawn like any other gene. Lateral as
+# everything else here: neither is rarer, neither unlocks anything, and
+# nothing in the game behaves differently because of it. It exists so the
+# cat can be talked about as somebody rather than as "it".
+GENDERS = ["boy", "girl"]
+PRONOUNS = {
+    "boy": {"they": "he", "them": "him", "their": "his", "theirs": "his"},
+    "girl": {"they": "she", "them": "her", "their": "her", "theirs": "hers"},
+}
+
 # Curated body/accent pairs from the 8-colour console space. Both members
 # have to stay legible on a bare TERM=linux console, which is why black is
 # absent and why no combo pairs two dark colours.
@@ -410,6 +420,39 @@ EAR_BACK = {
 TAIL_LIE = {"curl": "_)", "straight": "__", "puff": "_*"}
 TAIL_TIP = {"curl": ")", "straight": "|", "puff": "*"}
 
+# The cat, adapted from the front-facing sitting cat on asciiart.eu.
+# Roughly twice the size of the first version, which was ten columns of
+# squint. Credit where it's due: the ASCII cat tradition these are drawn
+# from is the work of hobbyist artists over decades, and the sitting-cat
+# form here follows one of theirs.
+#
+# The gene slots survive the redraw, which is the point -- the eyes are a
+# three-character slot, the chest is the fur fill, the feet are the paws
+# and the sweep off the shoulder is the tail. Every kid still gets their
+# own cat.
+#
+# Head geometry: {L} + 7 fixed + {R} = 11 wide from column 5, so the ear
+# tips on the row above sit at columns 5 and 15. Keep that if you edit.
+
+# --- two sizes, for two jobs -----------------------------------------
+#
+# SPRITE (ADULT/KITTEN) is the compact cat that lives inside the games:
+# it stands on a fourteen-column platform, runs in a race lane, sits
+# beside a soup bowl. It has to stay small or those layouts break, and
+# a 20-column cat broke all of them the first time this was tried.
+#
+# PORTRAIT (ADULT_BIG/KITTEN_BIG) is the cat you actually look at -- the
+# menu, the hatch, the ceremonies. Adapted from the front-facing sitting
+# cat on asciiart.eu, roughly twice the size, which is the point: ten
+# columns of squint was never going to read as somebody's pet.
+#
+# Both carry the same gene slots, so a kid's cat is one animal at two
+# sizes. Portrait head geometry: {L} + 7 fixed + {R} = 11 wide from
+# column 5, so the ear tips on the row above sit at columns 5 and 15.
+
+PAWS_SPRITE = "(_)"
+PAWS_BIG = '""'
+
 ADULT = {
     "sit": [
         "  {L}_{R}",
@@ -517,6 +560,161 @@ KITTEN = {
         "( - - )",
         " /{f}\\",
         " {p}{p}{T}",
+    ],
+}
+
+ADULT_BIG = {
+    "sit": [
+        "     .         .",
+        "     {L}`-\"'\"-'{R}",
+        "      | {E} |",
+        "     =.  Y  ,=",
+        "       /{f}{f}{f}\\",
+        "      /     \\{T}",
+        "     (  )-(  )",
+        "      {p}   {p}",
+    ],
+    "groom": [
+        "     .         .",
+        "     {L}`-\"'\"-'{R}",
+        "      | {E} |,",
+        "     =.  Y  ,='",
+        "       /{f}{f}{f}\\",
+        "      /     \\{T}",
+        "     (  )-(  )",
+        "      {p}   {p}",
+    ],
+    "loaf": [
+        "",
+        "     .         .",
+        "     {L}`-\"'\"-'{R}",
+        "      | {E} |",
+        "     =.  Y  ,=",
+        "   (\"\"-'{f}{f}{f}`-\"\")",
+        "    `-/     \\-'{T}",
+        "      {p}   {p}",
+    ],
+    "sleep": [
+        "                  z",
+        "     .         .",
+        "     {l}`-\"'\"-'{r}   z",
+        "      | - - |",
+        "     =.  Y  ,=",
+        "   (\"\"-'{f}{f}{f}`-\"\")",
+        "    `-/     \\-'{T}",
+        "      {p}   {p}",
+    ],
+    "pounce": [
+        "     .         .",
+        "     {L}`-\"'\"-'{R}   {U}",
+        "      | O O |   /",
+        "     =.  Y  ,= /",
+        "    _/{f}{f}{f}{f}{f}\\_/",
+        "   /           \\",
+        "  (  )-(   )-(  )",
+        "   {p}  {p}   {p}  {p}",
+    ],
+    "swat": [
+        "     .         .",
+        "     {L}`-\"'\"-'{R}",
+        "      | - - |",
+        "     =.  Y  ,=___",
+        "       /{f}{f}{f}\\    >",
+        "      /     \\{T}",
+        "     (  )-(  )",
+        "      {p}   {p}",
+    ],
+    "overjoyed": [
+        "     .         .",
+        "     {L}`-\"'\"-'{R}  {U}",
+        "      | ^ ^ |  /",
+        "     =.  w  ,=/",
+        "       /{f}{f}{f}\\",
+        "      /     \\",
+        "     (  )-(  )",
+        "      {p}   {p}",
+    ],
+    "wary": [
+        "     .         .",
+        "     {l}`-\"'\"-'{r}",
+        "      | - - |",
+        "     =.  Y  ,=",
+        "       /{f}{f}{f}\\",
+        "      /     \\{T}",
+        "     (  )-(  )",
+        "      {p}   {p}",
+    ],
+}
+
+KITTEN_BIG = {
+    "sit": [
+        "    .       .",
+        "    {L}`-\"-'{R}",
+        "     | {E} |",
+        "    =. Y ,=",
+        "     /{f}{f}\\{T}",
+        "    (  )-( )",
+        "     {p}  {p}",
+    ],
+    "groom": [
+        "    .       .",
+        "    {L}`-\"-'{R}",
+        "     | {E} |,",
+        "    =. Y ,='",
+        "     /{f}{f}\\{T}",
+        "    (  )-( )",
+        "     {p}  {p}",
+    ],
+    "loaf": [
+        "",
+        "    .       .",
+        "    {L}`-\"-'{R}",
+        "     | {E} |",
+        "   (\"-'{f}{f}`-\"){T}",
+        "     {p}  {p}",
+    ],
+    "sleep": [
+        "               z",
+        "    .       .",
+        "    {l}`-\"-'{r}  z",
+        "     | - - |",
+        "   (\"-'{f}{f}`-\"){T}",
+        "     {p}  {p}",
+    ],
+    "pounce": [
+        "    .       .",
+        "    {L}`-\"-'{R}  {U}",
+        "     | O O |  /",
+        "    _/{f}{f}{f}\\_/",
+        "   (  )-(  )",
+        "    {p}  {p}",
+    ],
+    "swat": [
+        "    .       .",
+        "    {L}`-\"-'{R}",
+        "     | - - |__",
+        "    =. Y ,=   >",
+        "     /{f}{f}\\{T}",
+        "    (  )-( )",
+        "     {p}  {p}",
+    ],
+    "overjoyed": [
+        "    .       .",
+        "    {L}`-\"-'{R} {U}",
+        "     | ^ ^ |/",
+        "    =. w ,=",
+        "     /{f}{f}\\",
+        "    (  )-( )",
+        "     {p}  {p}",
+    ],
+    "wary": [
+        "    .       .",
+        "    {l}`-\"-'{r}",
+        "     | - - |",
+        "    =. Y ,=",
+        "     /{f}{f}\\{T}",
+        "    (  )-( )",
+        "     {p}  {p}",
     ],
 }
 
@@ -829,6 +1027,9 @@ class Cat:
         self.tail = _gene(self.seed, "tail", TAILS)
         self.personality = _gene(self.seed, "personality", PERSONALITIES)
         # Own stream, per the Phase 2 convention -- adding this gene must
+        # not change a single existing cat's appearance.
+        self.gender = _gene(self.seed, "gender", GENDERS)
+        # Own stream, per the Phase 2 convention -- adding this gene must
         # not repaint a single existing cat.
         self.marks = _gene(self.seed, "marks", MARKS)
 
@@ -859,11 +1060,18 @@ class Cat:
         g = self.growth if growth is None else growth
         return g <= 1
 
-    def _template(self, pose, growth=None):
-        table = KITTEN if self.is_kitten(growth) else ADULT
+    def _template(self, pose, growth=None, big=False):
+        """
+        The art for a pose. `big` picks the portrait set -- the cat you
+        look at on the menu -- over the compact sprite the games need.
+        """
+        if big:
+            table = KITTEN_BIG if self.is_kitten(growth) else ADULT_BIG
+        else:
+            table = KITTEN if self.is_kitten(growth) else ADULT
         return table.get(pose) or table["sit"]
 
-    def _render(self, pose, growth=None):
+    def _render(self, pose, growth=None, big=False):
         """The pose as [(text, accent_columns), ...] with genes filled in."""
         left, right = EAR_CHARS[self.ears]
         back_l, back_r = EAR_BACK[self.ears]
@@ -876,19 +1084,19 @@ class Cat:
             "r": (back_r, False),
             "E": (self.eyes, False),
             "f": (fill, fill != " "),
-            "p": ("(_)", fur["paws"]),
+            "p": (PAWS_BIG if big else PAWS_SPRITE, fur["paws"]),
             "T": (TAIL_LIE[self.tail], True),
             "U": (TAIL_TIP[self.tail], True),
         }
 
         stage = self.growth if growth is None else growth
         rows = []
-        for row in self._template(pose, growth):
+        for row in self._template(pose, growth, big):
             text, accents, tracked = _expand(row, subs, track="f")
             text, accents = self._reveal(text, accents, tracked["f"], stage)
             rows.append((text, accents))
 
-        return self._wear(rows, pose, growth)
+        return self._wear(rows, pose, growth, big)
 
     def _reveal(self, text, accents, fill_cols, stage):
         """
@@ -914,7 +1122,7 @@ class Cat:
             hot.add(col)
         return "".join(chars), hot
 
-    def _wear(self, rows, pose, growth=None):
+    def _wear(self, rows, pose, growth=None, big=False):
         """
         Insert the accessory row, if anything is being worn.
 
@@ -949,17 +1157,21 @@ class Cat:
         at = face + 1 if item["slot"] == "neck" else max(0, face - 1)
         return rows[:at] + [(line, accents)] + rows[at:]
 
-    def art(self, pose="sit", growth=None):
+    def art(self, pose="sit", growth=None, big=False):
         """Plain text rows -- handy for ui.message art and for tests."""
-        return [text for text, _ in self._render(pose, growth)]
+        return [text for text, _ in self._render(pose, growth, big)]
 
-    def width(self, pose="sit", growth=None):
-        return max((len(r) for r in self.art(pose, growth)), default=0)
+    def portrait(self, pose="sit", growth=None):
+        """The big cat, for screens where the cat IS the screen."""
+        return self.art(pose, growth, big=True)
 
-    def height(self, pose="sit", growth=None):
-        return len(self.art(pose, growth))
+    def width(self, pose="sit", growth=None, big=False):
+        return max((len(r) for r in self.art(pose, growth, big)), default=0)
 
-    def draw(self, win, y, x, pose="sit", growth=None):
+    def height(self, pose="sit", growth=None, big=False):
+        return len(self.art(pose, growth, big))
+
+    def draw(self, win, y, x, pose="sit", growth=None, big=False):
         """
         Paint the cat at (y, x). Body in the body colour, fur markings,
         tail and (for socks/tuxedo) paws in the accent -- two colours is
@@ -967,7 +1179,7 @@ class Cat:
         every cat look like somebody's.
         """
         body, accent = self.body_attr, self.accent_attr
-        for i, (row, accents) in enumerate(self._render(pose, growth)):
+        for i, (row, accents) in enumerate(self._render(pose, growth, big)):
             ui.safe_addstr(win, y + i, x, row, body)
             for j in sorted(accents):
                 ui.safe_addstr(win, y + i, x + j, row[j], accent)
@@ -1010,12 +1222,45 @@ class Cat:
         rng = rng or random
         return rng.choice(POSE_LINES.get(pose) or POSE_LINES["sit"])
 
+    # -- pronouns ----------------------------------------------------
+
+    @property
+    def they(self):
+        return PRONOUNS[self.gender]["they"]
+
+    @property
+    def them(self):
+        return PRONOUNS[self.gender]["them"]
+
+    @property
+    def their(self):
+        return PRONOUNS[self.gender]["their"]
+
+    @property
+    def theirs(self):
+        return PRONOUNS[self.gender]["theirs"]
+
+    def They(self):
+        return self.they.capitalize()
+
+    def Their(self):
+        return self.their.capitalize()
+
     def describe(self, subject=None):
         """One line a kid can read."""
         return "%s is a %s %s cat." % (
             subject or self.name,
             PERSONALITY_WORDS[self.personality],
             FUR_WORDS[self.fur],
+        )
+
+    def describe_full(self):
+        """The hatch reveal: what they are, and who they are."""
+        return "%s is a %s %s %s." % (
+            self.They(),
+            PERSONALITY_WORDS[self.personality],
+            FUR_WORDS[self.fur],
+            "tomcat" if self.gender == "boy" else "she-cat",
         )
 
 

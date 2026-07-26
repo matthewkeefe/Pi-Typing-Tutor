@@ -335,7 +335,8 @@ def win_it_back(stdscr, profile):
     distance = WARY_START_DISTANCE
     attempts = 0
     swatted = False
-    note = "%s is keeping its distance." % (kitty.name if kitty else "The cat")
+    note = "%s is keeping %s distance." % (
+        kitty.name if kitty else "The cat", kitty.their if kitty else "their")
 
     curses.curs_set(0)
     stdscr.nodelay(False)
@@ -396,7 +397,9 @@ def win_it_back(stdscr, profile):
             fx.spawn("purr", 4, stdscr.getmaxyx()[1] // 2)
     ui.message(
         stdscr,
-        ["%s bumps its head against your hand." % (kitty.name if kitty else "The cat"),
+        ["%s bumps %s head against your hand." % (
+            kitty.name if kitty else "The cat",
+            kitty.their if kitty else "their"),
          "",
          "Friends again. That's all it wanted."],
         title="PURRRR",

@@ -164,7 +164,7 @@ def hatch_ceremony(stdscr, profile, parent=None, keep_existing=False):
     kitten = cat.Cat(seed, growth=0, parent=parent)
     ui.message(
         stdscr,
-        ["A kitten!", "", kitten.describe("It")],
+        ["A kitten!", "", kitten.describe_full()],
         title="IT HATCHED",
         art=kitten.art("overjoyed", growth=0),
     )
@@ -1434,6 +1434,44 @@ def build_menu(profile, gated):
     return entries
 
 
+def menu_cat_panel(profile, day):
+    """
+    The framed cat column for the main menu: the big portrait, an idle
+    pose, and whatever they're wearing.
+
+    Returns (width, height, draw) for ui.menu, or None for a profile with
+    no cat -- in which case the menu is the plain centred one it always
+    was. The portrait set is used here rather than the game sprite: this
+    is the screen where the cat IS the screen.
+    """
+    kitty = cat.Cat.from_profile(profile)
+    if kitty is None:
+        return None
+
+    poses = [p for p in cat.POSES if p not in ("wary",)]
+    width = max(kitty.width(p, big=True) for p in poses)
+    height = max(kitty.height(p, big=True) for p in poses)
+    state = {"pose": "sit", "ticks": 0}
+
+    def draw(win, top, left):
+        state["ticks"] += 1
+        if state["ticks"] % POSE_TICKS == 0:
+            state["pose"] = kitty.next_idle()
+        pose = state["pose"]
+        if cat.wary_active(profile):
+            pose = "wary"
+        elif day.get("free_play", 0) >= SLEEP_AFTER_ROUNDS:
+            pose = "sleep"
+        elif cat.mood(profile) == "missing":
+            pose = "sleep"
+        # Centred in its frame, and never taller than the frame allows.
+        art_w = kitty.width(pose, big=True)
+        kitty.draw(win, top, left + max(0, (width - art_w) // 2), pose,
+                   big=True)
+
+    return width, height, draw
+
+
 def main_menu(stdscr, all_profiles, profile):
     first_today = profiles.touch_day(profile)
     if first_today:
@@ -1481,6 +1519,7 @@ def main_menu(stdscr, all_profiles, profile):
 
     day = {"free_play": 0}
     paint_cat = menu_cat_painter(profile, day)
+    panel = menu_cat_panel(profile, day)
 
     def after_task(task, summary):
         after_session(stdscr, all_profiles, profile, task, summary)
@@ -1499,8 +1538,10 @@ def main_menu(stdscr, all_profiles, profile):
             "%s  --  Level %d: %s" % (profile["name"], profile["rocket_level"], lvl["name"]),
             [label for label, _ in entries],
             subtitle=sub,
-            art=TITLE_ART,
-            draw_extra=paint_cat,
+            panel=panel,
+            panel_title=(cat.Cat.from_profile(profile).name
+                         if profile.get("cat") else None),
+            draw_extra=paint_cat if panel is None else None,
         )
 
         action, payload = ("quit", None) if choice == -1 else entries[choice][1]

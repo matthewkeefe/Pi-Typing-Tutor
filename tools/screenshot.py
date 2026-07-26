@@ -117,11 +117,19 @@ PROFILES = ("new", "veteran", "graduate")
 
 
 def _scene_menu_cat(stdscr, profile):
+    """The real main menu: framed cat portrait left, options right."""
+    import curses
     import main
-    from core import ui
-    painter = main.menu_cat_painter(profile, {"free_play": 0})
-    ui.center(stdscr, 2, "-- menu cat, decor, seasonal mark --", 0)
-    painter(stdscr, 0)
+    from core import cat, ui
+    panel = main.menu_cat_panel(profile, {"free_play": 0})
+    entries = main.build_menu(profile, False)
+    kitty = cat.Cat.from_profile(profile)
+    curses.ungetch(27)
+    ui.menu(stdscr, "%s  --  Level 1" % profile["name"],
+            [label for label, _ in entries],
+            subtitle="streak %d days  |  %d fish"
+                     % (profile["current_streak"], profile.get("fish", 0)),
+            panel=panel, panel_title=kitty.name if kitty else None)
 
 
 def _scene_stats(stdscr, profile):
@@ -226,7 +234,7 @@ def _scene_cats(stdscr, profile):
 
 
 SCENES = {
-    "menu-cat": ("the cat on the menu, with decor and seasonal mark",
+    "menu-cat": ("the framed main menu: cat left, options right",
                  _scene_menu_cat),
     "stats": ("stats screen, paginated, heatmap pinned", _scene_stats),
     "scrapbook": ("collection albums", _scene_scrapbook),

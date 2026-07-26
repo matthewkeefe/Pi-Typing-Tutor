@@ -163,8 +163,31 @@ def draw_typing_line(win, y, x, target, typed, wrong_at=None):
         safe_addstr(win, y, x + i, display, attr)
 
 
+def frame(win, top, left, height, width, title=None, attr=0):
+    """
+    A box, in the same `.--.` / `'--'` idiom as the speech bubble.
+
+    Returns (inner_top, inner_left, inner_height, inner_width) so callers
+    lay out against the inside rather than counting borders themselves.
+    Pure ASCII: box-drawing characters don't survive TERM=linux.
+    """
+    width = max(4, width)
+    height = max(3, height)
+    head = "-" * (width - 2)
+    if title:
+        label = " %s " % title[:width - 6]
+        head = label + "-" * max(0, width - 2 - len(label))
+    safe_addstr(win, top, left, "." + head + ".", attr)
+    for i in range(1, height - 1):
+        safe_addstr(win, top + i, left, "|", attr)
+        safe_addstr(win, top + i, left + width - 1, "|", attr)
+    safe_addstr(win, top + height - 1, left, "'" + "-" * (width - 2) + "'", attr)
+    return top + 1, left + 1, height - 2, width - 2
+
+
 def menu(stdscr, title, options, subtitle=None, footer=None, art=None,
-         draw_extra=None, option_icons=None, tick_ms=110):
+         draw_extra=None, option_icons=None, tick_ms=110,
+         panel=None, panel_title=None):
     """
     Arrow-key menu. Returns the selected index, or -1 if the user
     backs out with q / ESC.
@@ -177,6 +200,14 @@ def menu(stdscr, title, options, subtitle=None, footer=None, art=None,
 
     `option_icons` is an optional per-option `(text, attr)` drawn just left
     of the label in its own colour -- the cat glyphs in the profile picker.
+
+    `panel` is `(width, height, draw)` for a framed column down the left --
+    the cat on the main menu. `draw(win, top, left)` paints inside it, so
+    colour stays with whoever owns the thing being drawn and this function
+    only owns the layout. With a panel the options are framed on the right
+    and LEFT-ALIGNED: centring each label individually made any ragged
+    list visibly wobble, which is why half the call sites used to pad
+    their labels to a common width by hand.
     """
     idx = 0
     curses.curs_set(0)
@@ -197,19 +228,70 @@ def menu(stdscr, title, options, subtitle=None, footer=None, art=None,
                 top += 1
             top += 1
 
-            for i, opt in enumerate(options):
+            if panel:
+                p_w, p_h, p_draw = panel
+                box_w = p_w + 2
+                # Each frame takes the height it needs. Tying the menu to
+                # the cat's height silently ate six options.
+                full_h = max(5, h - top - 2)
+                cat_h = min(full_h, p_h + 2)
+                menu_h = min(full_h, len(options) + 4)
+
+                p_top, p_left, _ih, _iw = frame(stdscr, top, 1, cat_h, box_w,
+                                                panel_title, cp(C_PENDING))
+                try:
+                    p_draw(stdscr, p_top, p_left)
+                except curses.error:
+                    pass
+
+                menu_left = box_w + 2
+                menu_w = max(20, w - menu_left - 2)
+                m_top, m_left, m_h, m_w = frame(
+                    stdscr, top, menu_left, menu_h, menu_w, None,
+                    cp(C_PENDING))
+                row0, col0, avail = m_top + 1, m_left + 1, m_h - 2
+            else:
+                row0, col0, avail = top, None, len(options)
+
+            # The menu outgrew the screen once Phase 6 added modes: at
+            # 80x24 the last four entries -- including Quit -- fell off
+            # the bottom. Scroll a window that always contains the
+            # selection rather than trusting the list to stay short.
+            avail = max(1, avail)
+            first = 0
+            if len(options) > avail:
+                first = min(max(0, idx - avail // 2), len(options) - avail)
+            shown = list(enumerate(options))[first:first + avail]
+
+            for row, (i, opt) in enumerate(shown):
                 selected = i == idx
-                label = ("  > " + opt + "  ") if selected else ("    " + opt + "  ")
+                label = ("> " + opt) if selected else ("  " + opt)
                 attr = cp(C_WARN, True) | curses.A_REVERSE if selected else cp(C_DEFAULT)
-                x = max(0, (w - len(label)) // 2)
-                safe_addstr(stdscr, top + i, x, label, attr)
+                if col0 is None:
+                    label = ("  " + label + "  ")
+                    x = max(0, (w - len(label)) // 2)
+                else:
+                    # Left-aligned in its frame: a menu is a list, and a
+                    # list reads down its left edge.
+                    x = col0
+                    label = label.ljust(min(len(label) + 2, m_w - 2))
+                safe_addstr(stdscr, row0 + row, x, label, attr)
                 icon = option_icons[i] if option_icons and i < len(option_icons) else None
                 if icon:
                     text, icon_attr = icon
-                    safe_addstr(stdscr, top + i, x - len(text) - 1, text, icon_attr)
+                    safe_addstr(stdscr, row0 + row, max(0, x - len(text) - 1),
+                                text, icon_attr)
+
+            if col0 is not None and len(options) > avail:
+                # Say so, rather than letting the list look finished.
+                if first > 0:
+                    safe_addstr(stdscr, row0 - 1, col0, "^ more", cp(C_PENDING))
+                if first + avail < len(options):
+                    safe_addstr(stdscr, row0 + avail, col0, "v more",
+                                cp(C_PENDING))
 
             foot = footer or "up/down to move   ENTER to pick   q to go back"
-            center(stdscr, min(h - 2, top + len(options) + 2), foot, cp(C_PENDING))
+            center(stdscr, h - 2, foot, cp(C_PENDING))
             if draw_extra:
                 draw_extra(stdscr, idx)
             stdscr.refresh()
