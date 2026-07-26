@@ -17,11 +17,11 @@ import sys
 from datetime import date
 
 from core import (profiles, badges, ui, lessons, adaptive, cat, engine, fx,
-                  shop, scrapbook, milestones, rituals)
+                  shop, scrapbook, milestones, rituals, contests)
 from core.ui import (cp, center, safe_addstr, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_BADGE, C_DEFAULT)
 from modes import (rocket, dino, platformer, memorize, care, yarn, soup,
-                   pantry, mystery, quiz, race)
+                   pantry, mystery, quiz, race, contest, dash)
 
 # The free-play arcade: (module, history name, label, blurb).
 # play_slot builds the care board's Play choices from this same list, so a
@@ -36,6 +36,8 @@ ARCADE = [
     (mystery, "mystery", "Mystery Word", "guess it, then spell it"),
     (quiz, "quiz", "Whisker Quiz", "the cat asks, you answer"),
     (race, "race", "Ghost Race", "race a recorded run"),
+    (contest, "contest", "Contest Cups", "five cups, three trials each"),
+    (dash, "dash", "Daily Dash", "sixty seconds, no stakes"),
     (memorize, "memorize", "Memorize", "learn it by heart"),
 ]
 
@@ -387,6 +389,7 @@ def show_stats(stdscr, profile):
         ("Soup words found", "%d (best score: %d)" % (profile["soup_words_found"],
                                                       profile["soup_best_score"])),
         ("Memorized", "%d passages" % profile["memorize_completions"]),
+        ("Cups won", "%d of %d" % (contests.rank(profile), len(contests.CUPS))),
         ("Badges", "%d of %d" % (len(profile["badges"]), len(badges.BADGES))),
     ]
     # The heatmap is the competence lever, so it stays pinned to the

@@ -236,6 +236,25 @@ Unfound items show as `? ? ?`. That says "there's more to find" and never "you
 missed it": nothing in the Scrapbook expires, and **nothing in it can ever be
 lost**. There is deliberately no code path that removes an entry.
 
+## Contest cups
+
+Five cups — Beginner, Junior, Expert, Master, Champion — each judged on one
+sixty-second run against three bars at once: speed, accuracy, and how far you
+got. The Beginner Cup wants 8 wpm at 80%; the Champion Cup wants the 40 wpm the
+whole engine is tuned toward.
+
+**Ranks measure you against the game's bars, never against a sibling.** Nothing in
+the contest code loads another profile — there's no leaderboard, no comparison,
+and a rank can't become a statement about you and your sister. Losing costs the
+entry and nothing else: no fish taken, no rank lost, and the tip names the trial
+that missed rather than the kid.
+
+Three goes a day. The cat asks you to rest those paws rather than the game
+refusing you, and a wrong clock hands entries back rather than locking anyone out.
+
+Win a cup and the burst round unlocks as the **Daily Dash** — the same sixty
+seconds with nothing riding on it, so practising for a cup never costs a go.
+
 ## Two progression bars
 
 Fish are spendable, so a kid who owns the shop has nothing left to earn. Milestones
@@ -386,6 +405,7 @@ core/ghosts.py        race recordings: shared tracks, splits, bounded storage
 core/scrapbook.py     collection albums: fish species, gifts, derived pages
 core/milestones.py    the unspendable progression bar: totals -> earned items
 core/rituals.py       weekend crate, seasons, show-up gift escalation
+core/contests.py      the cup ladder: bars, ranks, entry throttle
 modes/rocket.py       level-based ship builder
 modes/dino.py         endless letter chomper
 modes/platformer.py   accuracy-focused jumper (the cat is the jumper)
@@ -395,6 +415,8 @@ modes/soup.py         anagram word-builder (unlock-gated at 12 letters)
 modes/mystery.py      hidden-word deduction, then spell it out
 modes/quiz.py         type-the-answer trivia from data/quiz.txt
 modes/race.py         asynchronous ghost racing on shared tracks
+modes/contest.py      five cups, three trials each
+modes/dash.py         the contest burst round as free play
 modes/memorize.py     progressive-occlusion repetition drill
 modes/feed.py         the Food task: adaptive weak-key drill, as fishing
 modes/care.py         care board + the Water / Pets / Clean activities

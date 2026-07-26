@@ -41,6 +41,7 @@ def _blank_profile(name):
         "pantry_high_score": 0,
         "mystery_opened": 0,
         "quiz_right": 0,
+        "contests": {"rank": 0, "day": "", "entries": 0},
         "soup_words_found": 0,
         "soup_best_score": 0,
         "soup_most_words": 0,
