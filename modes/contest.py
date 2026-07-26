@@ -219,7 +219,8 @@ def play(stdscr, profile):
         ["Have a go  (%d left today)" % left, "Not right now"],
         subtitle="%.0f wpm  --  %.0f%% accurate  --  %d words in a minute"
                  % (wpm_bar, acc_bar, endurance),
-        art=kitty.art("sit") if kitty else None,
+        panel=cat.panel(kitty, "pounce"),
+        panel_title=kitty.name if kitty else None,
     )
     if choice != 0:
         return None

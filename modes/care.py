@@ -415,27 +415,33 @@ def win_it_back(stdscr, profile):
 TASK_RUNNERS = {"water": water, "pets": pets, "clean": clean}
 
 
-def _board_painter(profile, kitty):
-    # `idx` is the highlighted row, which this painter doesn't need -- but
-    # ui.menu passes it to every draw_extra, so the signature has to take
-    # it. Phase 5 added the argument for the shop painter and this one was
-    # never updated, which crashed the care board on entry for four
-    # phases. See tests/test_painters.py, which now checks all three.
-    def paint(win, idx=0):
-        h, w = win.getmaxyx()
+def _board_panel(profile, kitty):
+    """
+    The framed left column: the cat, and how it's doing underneath.
+
+    Same shape as the main menu's cat panel, because this is the screen a
+    kid opens every day and the two shouldn't look like different games.
+    The gauges used to sit at column 8 with the cat pinned to the far
+    right edge, which on a wide terminal put half a screen of nothing
+    between a cat and its own status bars.
+    """
+    def gauge_lines():
         levels = cat.gauges(profile)
-        top = min(h - 6, 15)  # below ui.menu's footer row, not on top of it
-        safe_addstr(win, top - 1, 8, "how %s is doing" % (kitty.name if kitty else "your cat"),
-                    cp(C_ACCENT, True))
-        for i, task in enumerate(cat.CARE_TASKS):
+        out = []
+        for task in cat.CARE_TASKS:
             level = levels[task]
             attr = cp(C_CORRECT, True) if level >= 1.0 else cp(C_WARN)
-            safe_addstr(win, top + i, 8, "%-6s %s" % (
-                cat.CARE_LABELS[task], cat.gauge_bar(level)), attr)
-        if kitty:
-            pose = cat.mood_pose(cat.mood(profile))
-            kitty.draw(win, top - 1, max(0, w - kitty.width(pose) - 6), pose)
-    return paint
+            out.append(("%-6s %s" % (cat.CARE_LABELS[task],
+                                     cat.gauge_bar(level)), attr))
+        return out
+
+    # Widest a gauge row can ever be, so the frame never reflows as the
+    # bars fill in.
+    hint = max(len("%-6s %s" % (cat.CARE_LABELS[t], cat.gauge_bar(1.0)))
+               for t in cat.CARE_TASKS)
+    return cat.panel(kitty, lambda: cat.mood_pose(cat.mood(profile)),
+                     lines=gauge_lines, width_hint=hint,
+                     n_lines=len(cat.CARE_TASKS))
 
 
 def board(stdscr, profile, play_slot, after_task):
@@ -449,14 +455,14 @@ def board(stdscr, profile, play_slot, after_task):
 
     while True:
         left = cat.tasks_left_today(profile)
-        # Every row is padded to the same width: ui.menu centres each label
-        # on its own, so ragged lengths make a checklist visibly wobble.
+        # No hand-padding any more: framed menus are left-aligned, so a
+        # ragged checklist lines up on its own.
         options = []
         for task in cat.CARE_TASKS:
             mark = " " if task in left else "x"
-            options.append("[%s] %-6s %-24s" % (mark, cat.CARE_LABELS[task],
-                                                cat.CARE_BLURBS[task]))
-        options.append("Back to the menu".center(len(options[0])))
+            options.append("[%s] %-6s %s" % (mark, cat.CARE_LABELS[task],
+                                             cat.CARE_BLURBS[task]))
+        options.append("Back to the menu")
 
         choice = ui.menu(
             stdscr,
@@ -465,7 +471,8 @@ def board(stdscr, profile, play_slot, after_task):
             subtitle=("all done for today!" if not left
                       else "%d to go -- do them in any order you like" % len(left)),
             footer="up/down to move   ENTER to pick   ESC to go back",
-            draw_extra=_board_painter(profile, kitty),
+            panel=_board_panel(profile, kitty),
+            panel_title=name,
         )
         if choice == -1 or choice >= len(cat.CARE_TASKS):
             return

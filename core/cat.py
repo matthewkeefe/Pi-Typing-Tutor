@@ -1084,6 +1084,49 @@ class Cat:
         )
 
 
+def panel(kitty, pose="sit", lines=None, min_width=0, width_hint=0,
+          n_lines=None):
+    """
+    A framed-menu left column for a cat: `(width, height, draw)` for
+    `ui.menu(panel=...)`, or None when there's no cat.
+
+    Lives here so every screen gets the same column rather than each one
+    inventing its own placement -- the care board used to pin the cat to
+    the far right edge with its own status bars at column 8, which on a
+    wide terminal put half a screen of nothing between them.
+
+    `pose` and `lines` may both be callables, evaluated at DRAW time.
+    That matters: the care board's gauges change as a kid works through
+    the tasks, and a snapshot taken when the menu opened would show them
+    yesterday's numbers.
+
+    `lines` are extra rows drawn under the cat, each `(text, attr)`.
+    """
+    if kitty is None:
+        return None
+    art_w = max(kitty.width(p) for p in POSES)
+    art_h = max(kitty.height(p) for p in POSES)
+    # Never call `lines()` here just to count them -- it resolves colour
+    # pairs, and a panel gets built outside curses in tests and tools.
+    # A callable must declare how many rows it will draw.
+    if n_lines is None:
+        n_lines = 0 if callable(lines) else len(lines or [])
+    width = max(min_width, art_w, width_hint or 0)
+    height = art_h + (1 + n_lines if n_lines else 0)
+
+    def draw(win, top, left):
+        shown = pose() if callable(pose) else pose
+        kitty.draw(win, top, left + max(0, (width - kitty.width(shown)) // 2),
+                   shown)
+        rows = lines() if callable(lines) else (lines or [])
+        row = top + art_h + 1
+        for text, attr in rows:
+            ui.safe_addstr(win, row, left, text, attr)
+            row += 1
+
+    return width, height, draw
+
+
 def new_seed(rng=None):
     rng = rng or random
     return rng.randrange(1, 1000000)

@@ -80,11 +80,27 @@ def painters(profile):
     """
     kitty = cat.Cat.from_profile(profile)
     built = {
-        "care board": care._board_painter(profile, kitty),
         "menu cat": main.menu_cat_painter(profile, {"free_play": 0}),
         "shop": main._shop_painter(profile, kitty, shop.shelf(profile)),
     }
     return {name: fn for name, fn in built.items() if fn is not None}
+
+
+def panels(profile):
+    """
+    Every framed left column, by the call that builds it.
+
+    A panel is `(width, height, draw)` and `draw(win, top, left)` -- a
+    different contract from draw_extra, and one that needs the same
+    guarding, since these are now on most screens a kid touches.
+    """
+    kitty = cat.Cat.from_profile(profile)
+    built = {
+        "care board": care._board_panel(profile, kitty),
+        "main menu": main.menu_cat_panel(profile, {"free_play": 0}),
+        "plain cat": cat.panel(kitty, "sit"),
+    }
+    return {name: p for name, p in built.items() if p is not None}
 
 
 class TestTheContract(unittest.TestCase):
@@ -102,9 +118,12 @@ class TestTheContract(unittest.TestCase):
         self.assertIsNone(main.menu_cat_painter(blank, {"free_play": 0}))
         self.assertIn("if draw_extra", inspect.getsource(ui.menu))
 
-    def test_all_three_painters_exist_for_a_normal_profile(self):
-        self.assertEqual(sorted(painters(a_profile())),
-                         ["care board", "menu cat", "shop"])
+    def test_the_painters_exist_for_a_normal_profile(self):
+        self.assertEqual(sorted(painters(a_profile())), ["menu cat", "shop"])
+
+    def test_the_panels_exist_for_a_normal_profile(self):
+        self.assertEqual(sorted(panels(a_profile())),
+                         ["care board", "main menu", "plain cat"])
 
     def test_every_painter_accepts_what_ui_menu_sends(self):
         profile = a_profile()
@@ -169,6 +188,95 @@ class TestTheContract(unittest.TestCase):
                 p.stop()
 
 
+class TestPanels(unittest.TestCase):
+    """
+    The framed-column contract: (width, height, draw), drawing inside the
+    box it was given. Most screens use one now, so a break here is a
+    break nearly everywhere.
+    """
+
+    def setUp(self):
+        self._patches = no_color()
+        for p in self._patches:
+            p.start()
+        self.addCleanup(self._stop)
+
+    def _stop(self):
+        for p in self._patches:
+            p.stop()
+
+    def test_every_panel_reports_a_sane_size(self):
+        for name, (w, h, _d) in panels(a_profile()).items():
+            self.assertGreater(w, 0, name)
+            self.assertGreater(h, 0, name)
+            self.assertLess(w, 40, "%s leaves no room for a menu" % name)
+
+    def test_every_panel_draws_inside_its_frame(self):
+        for name, (w, h, draw) in panels(a_profile()).items():
+            win = FakeWin()
+            top, left, _ih, _iw = ui.frame(win, 1, 1, h + 2, w + 2)
+            try:
+                draw(win, top, left)
+            except Exception as exc:            # noqa: BLE001
+                self.fail("%s panel raised: %r" % (name, exc))
+            for y, x, text in win.written:
+                self.assertLessEqual(x + len(text), 1 + w + 2,
+                                     "%s drew past its frame" % name)
+
+    def test_panels_survive_every_profile_state(self):
+        for state, profile in _states().items():
+            for name, (w, h, draw) in panels(profile).items():
+                win = FakeWin()
+                top, left, _ih, _iw = ui.frame(win, 1, 1, h + 2, w + 2)
+                try:
+                    draw(win, top, left)
+                except Exception as exc:        # noqa: BLE001
+                    self.fail("%s panel raised on a %s profile: %r"
+                              % (name, state, exc))
+
+    def test_a_cat_less_profile_gets_no_panel(self):
+        blank = profiles._blank_profile("NoCat")
+        self.assertIsNone(cat.panel(None))
+        self.assertIsNone(main.menu_cat_panel(blank, {"free_play": 0}))
+
+    def test_panel_contents_are_evaluated_at_draw_time(self):
+        """
+        The care board's gauges change as a kid works through the tasks.
+        A snapshot taken when the menu opened would show stale numbers.
+        """
+        profile = a_profile()
+        kitty = cat.Cat.from_profile(profile)
+        _w, _h, draw = care._board_panel(profile, kitty)
+        win = FakeWin()
+        draw(win, 1, 1)
+        before = [t for _y, _x, t in win.written]
+        for task in cat.CARE_TASKS:
+            cat.stamp_care(profile, task)
+        win2 = FakeWin()
+        draw(win2, 1, 1)
+        after = [t for _y, _x, t in win2.written]
+        self.assertNotEqual(before, after, "gauges did not refresh")
+
+
+def _states():
+    fresh = profiles._blank_profile("Fresh")
+    no_cat = profiles._blank_profile("NoCat")
+    no_cat["cat"] = {}
+    loved = a_profile()
+    for task in cat.CARE_TASKS:
+        cat.stamp_care(loved, task)
+    neglected = a_profile()
+    neglected["cat"]["care"] = {}
+    neglected["cat"]["wary"] = True
+    decked = a_profile()
+    decked["fish"] = 9999
+    for item in ("rug", "cushion", "plant"):
+        shop.buy(decked, item)
+    contests.award(decked, 0)
+    return {"fresh": fresh, "no cat": no_cat, "cared for": loved,
+            "wary": neglected, "full of decor": decked}
+
+
 class TestAcrossProfileStates(unittest.TestCase):
     """
     The crash was found with a save from the day before, not a fresh one.
@@ -176,35 +284,12 @@ class TestAcrossProfileStates(unittest.TestCase):
     only time produces.
     """
 
-    def _states(self):
-        fresh = profiles._blank_profile("Fresh")
-
-        no_cat = profiles._blank_profile("NoCat")
-        no_cat["cat"] = {}
-
-        loved = a_profile()
-        for task in cat.CARE_TASKS:
-            cat.stamp_care(loved, task)
-
-        neglected = a_profile()
-        neglected["cat"]["care"] = {}
-        neglected["cat"]["wary"] = True
-
-        decked = a_profile()
-        decked["fish"] = 9999
-        for item in ("rug", "cushion", "plant"):
-            shop.buy(decked, item)
-        contests.award(decked, 0)
-
-        return {"fresh": fresh, "no cat": no_cat, "cared for": loved,
-                "wary": neglected, "full of decor": decked}
-
     def test_every_painter_on_every_profile_state(self):
         patches = no_color()
         for p in patches:
             p.start()
         try:
-            for state, profile in self._states().items():
+            for state, profile in _states().items():
                 for name, paint in painters(profile).items():
                     win = FakeWin()
                     try:
@@ -230,7 +315,10 @@ class TestAcrossProfileStates(unittest.TestCase):
             p.start()
         try:
             kitty = cat.Cat.from_profile(profile)
-            care._board_painter(profile, kitty)(FakeWin(), 0)
+            w, h, draw = care._board_panel(profile, kitty)
+            win = FakeWin()
+            top, left, _ih, _iw = ui.frame(win, 1, 1, h + 2, w + 2)
+            draw(win, top, left)
         finally:
             for p in patches:
                 p.stop()

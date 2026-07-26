@@ -132,6 +132,28 @@ def _scene_menu_cat(stdscr, profile):
             panel=panel, panel_title=kitty.name if kitty else None)
 
 
+def _scene_care(stdscr, profile):
+    """The care board: framed cat + gauges left, task list right."""
+    import curses
+    from modes import care
+    curses.ungetch(27)
+    care.board(stdscr, profile, lambda *_a: None, lambda *_a: None)
+
+
+def _scene_shop(stdscr, profile):
+    import curses
+    import main
+    curses.ungetch(27)
+    main.shop_screen(stdscr, {"Matt": profile}, profile)
+
+
+def _scene_playslot(stdscr, profile):
+    import curses
+    import main
+    curses.ungetch(27)
+    main.play_slot(stdscr, profile)
+
+
 def _scene_stats(stdscr, profile):
     import curses
     import main
@@ -236,6 +258,9 @@ def _scene_cats(stdscr, profile):
 SCENES = {
     "menu-cat": ("the framed main menu: cat left, options right",
                  _scene_menu_cat),
+    "care": ("the care board, framed", _scene_care),
+    "shop": ("the shop, framed", _scene_shop),
+    "playslot": ("the Play task picker, framed", _scene_playslot),
     "stats": ("stats screen, paginated, heatmap pinned", _scene_stats),
     "scrapbook": ("collection albums", _scene_scrapbook),
     "cats": ("every growth stage, accessory and the secret", _scene_cats),

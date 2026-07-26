@@ -732,14 +732,15 @@ def choose_cat_screen(stdscr, all_profiles, profile):
             kit = cat.Cat(data["seed"], data.get("name"),
                           data.get("growth", 0), parent=data.get("parent"))
             options.append("  %-14s (curled up, safe)" % kit.name)
-        options.append("Done".center(30))
+        options.append("Done")
 
         choice = ui.menu(
             stdscr,
             "W H O   T O D A Y ?",
             options,
             subtitle="whoever waits, waits exactly as they are",
-            art=live.art("sit") if live else None,
+            panel=cat.panel(live, "sit"),
+            panel_title=live.name if live else None,
         )
         first = 1 if live else 0
         if choice == -1 or choice >= len(options) - 1:
@@ -1069,18 +1070,25 @@ def menu_cat_painter(profile, day):
 
 
 def _shop_painter(profile, kitty, items):
-    """The cat leaning over the counter with an opinion about everything."""
+    """
+    What the kid has, and what the cat thinks of the highlighted item.
+
+    The cat itself now lives in the framed panel on the left, so this no
+    longer draws one -- it used to, and once the shop gained a panel that
+    meant two cats on screen at once.
+
+    The opinion stays here rather than in the panel because it reacts to
+    the highlighted row, and only a draw_extra is told what that is.
+    """
     def paint(win, idx):
         h, w = win.getmaxyx()
-        # Below ui.menu's footer row, so nothing lands on the title.
-        info = min(h - 9, 14)
+        info = max(0, h - 4)
         safe_addstr(win, info, 4, "You have %d fish" % shop.fish(profile),
                     cp(C_WARN, True))
-
         inv = shop.inventory(profile)
-        owned = "%d toys   %d decor   %s litter" % (
-            len(inv["toys"]), len(inv["decor"]), inv["litter"])
-        safe_addstr(win, info + 1, 4, owned, cp(C_PENDING))
+        safe_addstr(win, info + 1, 4, "%d toys   %d decor   %s litter" % (
+            len(inv["toys"]), len(inv["decor"]), inv["litter"]),
+            cp(C_PENDING))
 
         if not kitty:
             return
@@ -1088,16 +1096,9 @@ def _shop_painter(profile, kitty, items):
         line = item["says"] if item else "*tail flick*"
         if item and item["id"] == kitty.favourite_treat:
             line = "That's my favourite!"
-
-        pose = "pounce" if item and item["kind"] == shop.KIND_TOY else "sit"
-        art_w = kitty.width(pose)
-        x = max(0, w - art_w - 4)
-        y = max(0, h - kitty.height(pose) - 1)
-        bubble = line[:34]
-        bw = len(bubble) + 4
-        ui.speech_bubble(win, max(0, y - 3), max(0, w - bw - 2), [bubble],
-                         cp(C_ACCENT), tail_x=max(1, bw - 5))
-        kitty.draw(win, y, x, pose)
+        bubble = line[:40]
+        safe_addstr(win, info, max(0, w - len(bubble) - 6),
+                    '"%s"' % bubble, cp(C_ACCENT, True))
     return paint
 
 
@@ -1125,6 +1126,7 @@ def use_treat_screen(stdscr, all_profiles, profile):
             subtitle=("ready to use: " + ", ".join(shop.EFFECT_NAMES[e] for e in armed)
                       if armed else "pick one to save for your next game"),
             footer="ENTER to use one   ESC to go back",
+            panel=cat.panel(cat.Cat.from_profile(profile), "overjoyed"),
         )
         if choice == -1 or choice >= len(treats):
             return
@@ -1253,7 +1255,7 @@ def dress_up_screen(stdscr, all_profiles, profile):
             mark = "*" if item_id == worn else " "
             labels.append("%s %-24s" % (mark, shop.BY_ID[item_id]["name"]))
         labels.append("%s %-24s" % (" " if worn else "*", "Nothing at all"))
-        labels.append("Done".center(26))
+        labels.append("Done")
 
         kitty = cat.Cat.from_profile(profile)
         choice = ui.menu(
@@ -1262,7 +1264,8 @@ def dress_up_screen(stdscr, all_profiles, profile):
             labels,
             subtitle="* is what %s has on right now"
                      % (kitty.name if kitty else "your cat"),
-            art=kitty.art("overjoyed") if kitty else None,
+            panel=cat.panel(kitty, "overjoyed"),
+            panel_title=kitty.name if kitty else None,
         )
         if choice == -1 or choice >= len(labels) - 1:
             return
@@ -1296,11 +1299,9 @@ def shop_screen(stdscr, all_profiles, profile):
             extras.append("Dress up (%d)" % len(inv["accessories"]))
         extras.append("Done")
 
-        # ui.menu centres each label on its own, so a price list with
-        # ragged lengths visibly wobbles as you move down it.
-        width = max(len(l) for l in labels + extras)
-        labels = [l.ljust(width) for l in labels]
-        extras = [l.center(width) for l in extras]
+        # No hand-padding: framed menus are left-aligned, so a price list
+        # lines up on its own edge. These used to be centred individually,
+        # which made any ragged list visibly wobble as you moved down it.
 
         choice = ui.menu(
             stdscr,
@@ -1309,6 +1310,8 @@ def shop_screen(stdscr, all_profiles, profile):
             subtitle="* today's pick   --   new things every week, and "
                      "everything comes back",
             footer="ENTER to buy   ESC to go back",
+            panel=cat.panel(kitty, "sit"),
+            panel_title=kitty.name if kitty else None,
             draw_extra=_shop_painter(profile, kitty, items),
         )
         if choice == -1 or choice >= len(labels) + len(extras) - 1:
@@ -1395,6 +1398,8 @@ def play_slot(stdscr, profile):
         ["%-18s(%s)" % (label, blurb) for _, _, label, blurb in arcade]
         + ["Never mind"],
         subtitle="%s wants to play -- you pick" % name,
+        panel=cat.panel(kitty, "pounce"),
+        panel_title=kitty.name if kitty else None,
     )
     if choice == -1 or choice >= len(arcade):
         return None
