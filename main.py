@@ -12,13 +12,14 @@ Data lives in ./data/profiles.json (override with $TYPING_TUTOR_DATA).
 """
 
 import curses
+import os
 import random
 import sys
 from datetime import date
 
-from core import (profiles, badges, ui, lessons, adaptive, cat, engine, fx,
-                  shop, scrapbook, milestones, rituals, contests,
-                  stasis, graduation)
+from core import (profiles, badges, braille, ui, lessons, adaptive, cat,
+                  engine, fx, shop, scrapbook, milestones, rituals,
+                  contests, stasis, graduation)
 from core.ui import (cp, center, safe_addstr, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_BADGE, C_DEFAULT)
 from modes import (rocket, dino, platformer, memorize, care, yarn, soup,
@@ -166,7 +167,7 @@ def hatch_ceremony(stdscr, profile, parent=None, keep_existing=False):
         stdscr,
         ["A kitten!", "", kitten.describe_full()],
         title="IT HATCHED",
-        art=kitten.art("overjoyed", growth=0),
+        art=kitten.portrait_art("overjoyed", growth=0),
     )
 
     name = ui.ask_text(stdscr, "What will you call your cat?", maxlen=12)
@@ -528,7 +529,7 @@ def celebrate_tricks(stdscr, profile, letters):
              "",
              "(your %s key went green)" % letter.upper()],
             "NEW TRICK",
-            art=kitty.art("pounce"),
+            art=kitty.portrait_art("pounce"),
         )
 
 
@@ -555,7 +556,7 @@ def celebrate_milestones(stdscr, profile, fresh):
              "",
              '"%s"' % item["says"]],
             title="YOU EARNED SOMETHING",
-            art=kitty.art("overjoyed") if kitty else None,
+            art=kitty.portrait_art("overjoyed") if kitty else None,
         )
 
 
@@ -608,7 +609,7 @@ def show_up_gift(stdscr, all_profiles, profile, first_today):
         lines += ["", "...and %d fish, for keeping it up." % bonus]
 
     ui.celebrate(stdscr, lines, title="A PRESENT",
-                 art=kitty.art("overjoyed"))
+                 art=kitty.portrait_art("overjoyed"))
 
 
 def weekend_crate(stdscr, all_profiles, profile):
@@ -636,7 +637,7 @@ def weekend_crate(stdscr, all_profiles, profile):
          "",
          "There'll be another one next weekend."],
         title="WEEKEND DELIVERY",
-        art=kitty.art("pounce") if kitty else None,
+        art=kitty.portrait_art("pounce") if kitty else None,
     )
 
 
@@ -683,8 +684,8 @@ def growth_ceremony(stdscr, all_profiles, profile):
             for _ in range(beats):
                 stdscr.erase()
                 center(stdscr, top - 1, note, cp(C_WARN, True))
-                art_x = max(0, (w - kitty.width(pose)) // 2)
-                kitty.draw(stdscr, top + 1, art_x, pose)
+                art_x = max(0, (w - kitty.portrait_width(pose)) // 2)
+                kitty.draw_portrait(stdscr, top + 1, art_x, pose)
                 fx.tick(fx.FRAME)
                 fx.draw(stdscr)
                 stdscr.refresh()
@@ -704,7 +705,7 @@ def growth_ceremony(stdscr, all_profiles, profile):
          "",
          "Nothing was rushed. It just happened."],
         title="LOOK WHO GREW",
-        art=kitty.art("overjoyed"),
+        art=kitty.portrait_art("overjoyed"),
     )
     cat.mark_growth_seen(profile, stage)
     profiles.save_all(all_profiles)
@@ -760,7 +761,7 @@ def choose_cat_screen(stdscr, all_profiles, profile):
                  "",
                  "Nothing changed while they were waiting."],
                 title="THERE YOU ARE",
-                art=kit.art("overjoyed"),
+                art=kit.portrait_art("overjoyed"),
             )
 
 
@@ -792,7 +793,7 @@ def graduation_ceremony(stdscr, all_profiles, profile):
          "",
          "%s has something for you." % grown.name],
         title="YOU CAN TYPE",
-        art=grown.art("overjoyed"),
+        art=grown.portrait_art("overjoyed"),
     )
 
     # Same hatch the game opened with. It is theirs to name, and their
@@ -812,7 +813,7 @@ def graduation_ceremony(stdscr, all_profiles, profile):
          "",
          "Switch whenever you like."],
         title="LOOK WHAT YOU CAN TEACH",
-        art=kit.art("sit"),
+        art=kit.portrait_art("sit"),
     )
 
 
@@ -846,8 +847,8 @@ def secret_ceremony(stdscr, all_profiles, profile):
             stdscr.erase()
             center(stdscr, top - 1, "something is different...",
                    cp(C_WARN, True))
-            art_x = max(0, (w - kitty.width("overjoyed")) // 2)
-            kitty.draw(stdscr, top + 1, art_x, "overjoyed")
+            art_x = max(0, (w - kitty.portrait_width("overjoyed")) // 2)
+            kitty.draw_portrait(stdscr, top + 1, art_x, "overjoyed")
             fx.tick(fx.FRAME)
             fx.draw(stdscr)
             stdscr.refresh()
@@ -867,7 +868,7 @@ def secret_ceremony(stdscr, all_profiles, profile):
          "",
          "Nobody was told this would happen."],
         title="OH!",
-        art=kitty.art("overjoyed"),
+        art=kitty.portrait_art("overjoyed"),
     )
     cat.mark_secret_seen(profile)
     profiles.save_all(all_profiles)
@@ -970,15 +971,19 @@ def care_callout(stdscr, profile):
     stdscr.erase()
     h, w = stdscr.getmaxyx()
     top = max(1, h // 2 - 6)
-    art_w = kitty.width(pose)
+    art_w = kitty.portrait_width(pose)
+    art_h = kitty.portrait_height(pose)
     cat_x = max(0, (w - art_w) // 2)
     bubble_w = max(len(l) for l in lines) + 4
     tail_x = 3
     ui.speech_bubble(stdscr, top, max(0, min(w - bubble_w,
                                              cat_x + art_w // 2 - tail_x)),
                      lines, cp(C_ACCENT, True), tail_x=tail_x)
-    kitty.draw(stdscr, top + len(lines) + 2, cat_x, pose)
-    center(stdscr, min(h - 2, top + len(lines) + 9), "press any key", cp(C_PENDING))
+    kitty.draw_portrait(stdscr, top + len(lines) + 2, cat_x, pose)
+    # Below the cat, whatever size the cat is -- a fixed offset here
+    # printed "press any key" across the portrait's paws.
+    center(stdscr, min(h - 2, top + len(lines) + 3 + art_h), "press any key",
+           cp(C_PENDING))
     stdscr.refresh()
     stdscr.getch()
 
@@ -1147,7 +1152,7 @@ def use_treat_screen(stdscr, all_profiles, profile):
              "",
              "Ready for your next game: %s." % shop.EFFECT_BLURBS[effect]],
             title="SAVED FOR LATER",
-            art=kitty.art("overjoyed") if kitty else None,
+            art=kitty.portrait_art("overjoyed") if kitty else None,
         )
 
 
@@ -1273,6 +1278,66 @@ def dress_up_screen(stdscr, all_profiles, profile):
         profiles.save_all(all_profiles)
 
 
+def cat_style_screen(stdscr, all_profiles, profile):
+    """
+    Dots or letters, shown rather than described.
+
+    A seven-year-old cannot answer "do you want braille?", and shouldn't
+    have to: this draws their own cat both ways and asks which one they
+    like. Purely cosmetic either way -- same cat, same genes, same name.
+
+    Only reachable when the console can draw both, so neither option can
+    turn out to be the broken one.
+    """
+    kitty = cat.Cat.from_profile(profile)
+    if kitty is None:
+        return
+
+    def sample(dots):
+        """This kid's cat, drawn the way that option would draw it."""
+        was = braille.preference(profile)
+        braille.set_preference(profile, dots)
+        try:
+            return cat.Cat.from_profile(profile).portrait_art("sit")
+        finally:
+            if was is None:
+                profile.pop("braille", None)
+            else:
+                braille.set_preference(profile, was)
+
+    while True:
+        now = braille.supported(profile)
+        choice = ui.menu(
+            stdscr,
+            "HOW SHOULD %s LOOK?" % kitty.name.upper(),
+            ["Dots%s" % ("   (this one)" if now else ""),
+             "Letters%s" % ("" if now else "   (this one)"),
+             "Back to the menu"],
+            subtitle="Same cat either way -- just drawn differently",
+            panel=cat.panel(kitty, "sit"),
+            panel_title=kitty.name,
+        )
+        if choice in (-1, 2):
+            return
+        want = (choice == 0)
+        if want == now:
+            continue
+        braille.set_preference(profile, want)
+        profiles.save_all(all_profiles)
+        # Show the result immediately: the whole point is that they can
+        # see which they preferred, and the menu behind this is about to
+        # be redrawn at a different size.
+        ui.message(
+            stdscr,
+            ["%s it is." % ("Dots" if want else "Letters"),
+             "",
+             "You can change this back whenever you like."],
+            title="THERE YOU GO",
+            art=sample(want),
+        )
+        return
+
+
 def shop_screen(stdscr, all_profiles, profile):
     """
     Browsing is always free and never gated -- window shopping with no
@@ -1333,7 +1398,7 @@ def shop_screen(stdscr, all_profiles, profile):
                 [reason, "", "It'll still be here -- nothing in this shop",
                  "ever goes away for good."],
                 title="MAYBE NEXT TIME",
-                art=kitty.art("sit") if kitty else None,
+                art=kitty.portrait_art("sit") if kitty else None,
             )
             continue
 
@@ -1348,7 +1413,7 @@ def shop_screen(stdscr, all_profiles, profile):
                  "",
                  "%d fish left" % shop.fish(profile)],
                 title="BOUGHT IT",
-                art=kitty.art("overjoyed") if kitty else None,
+                art=kitty.portrait_art("overjoyed") if kitty else None,
             )
 
 
@@ -1434,6 +1499,14 @@ def build_menu(profile, gated):
     entries.append(("My Scrapbook", ("scrapbook", None)))
     entries.append(("My Badges", ("badges", None)))
     entries.append(("My Stats", ("stats", None)))
+    # Only where the console could actually draw it. A switch that can't
+    # work is worse than no switch: a kid flips it, nothing changes, and
+    # the game looks broken rather than the terminal. Named for what a
+    # child sees -- "braille" is the answer to a question they didn't ask.
+    if kitty and braille.offerable(profile):
+        style = "dots" if braille.supported(profile) else "letters"
+        entries.append(("%-18s(%s)" % ("Cat picture", style),
+                        ("catstyle", None)))
     entries.append(("Switch player", ("switch", None)))
     entries.append(("Quit", ("quit", None)))
     return entries
@@ -1455,9 +1528,9 @@ def menu_cat_panel(profile, day):
     # Sized to the widest pose so an idle change never reflows the frame,
     # and to the cat's name, which goes in the frame edge and can be
     # twelve characters.
-    width = max(max(kitty.width(p) for p in cat.POSES),
+    width = max(max(kitty.portrait_width(p) for p in cat.POSES),
                 len(kitty.name) + 3)
-    height = max(kitty.height(p) for p in cat.POSES)
+    height = max(kitty.portrait_height(p) for p in cat.POSES)
     state = {"pose": "sit", "ticks": 0}
 
     def draw(win, top, left):
@@ -1472,8 +1545,8 @@ def menu_cat_panel(profile, day):
         elif cat.mood(profile) == "missing":
             pose = "sleep"
         # Centred in its frame, and never taller than the frame allows.
-        art_w = kitty.width(pose)
-        kitty.draw(win, top, left + max(0, (width - art_w) // 2), pose)
+        art_w = kitty.portrait_width(pose)
+        kitty.draw_portrait(win, top, left + max(0, (width - art_w) // 2), pose)
 
     return width, height, draw
 
@@ -1571,6 +1644,9 @@ def main_menu(stdscr, all_profiles, profile):
         if action == "stats":
             show_stats(stdscr, profile)
             continue
+        if action == "catstyle":
+            cat_style_screen(stdscr, all_profiles, profile)
+            continue
         if action == "care":
             care.board(stdscr, profile, play_slot, after_task)
             continue
@@ -1586,7 +1662,7 @@ def main_menu(stdscr, all_profiles, profile):
                  "Head to the care board -- it's quick,",
                  "and then everything's open."],
                 title="SOON!",
-                art=kitty.art(cat.mood_pose(cat.mood(profile))),
+                art=kitty.portrait_art(cat.mood_pose(cat.mood(profile))),
             )
             continue
 
@@ -1651,10 +1727,77 @@ def run(stdscr):
             return
 
 
+USAGE = """\
+Pi Typing Tutor
+
+    python3 main.py [options]
+
+  --braille       draw the cat portrait in braille dots
+  --no-braille    draw it in plain ASCII, whatever else says
+  --check         report what this terminal can do, and exit
+  -h, --help      this
+
+Braille needs two things: a curses stack that counts one column per
+character, and a console font containing U+2800-U+28FF. `--check`
+measures the first; only looking at the screen can tell you about the
+second, which is why --braille exists. install-pi.sh sets it up
+permanently on the Pi.
+"""
+
+
+def _check():
+    """Report what this terminal can do. For diagnosing a boxes-only cat."""
+    wide = braille.wide_curses()
+    print("braille placeable : %s" % ("yes -- one column per character" if wide
+                                      else "no -- the ASCII cat will be used"))
+    if not wide:
+        print()
+        print("  This stack writes a braille character as three bytes and")
+        print("  counts three columns, so anything drawn to the right of")
+        print("  the cat would land in the wrong place. Refused rather")
+        print("  than drawn badly.")
+        return 0
+    print("%-18s: %s" % (braille.ENV_FLAG,
+                         os.environ.get(braille.ENV_FLAG) or "(unset)"))
+    print("would draw braille: %s" % ("yes" if braille.supported(None)
+                                      else "no"))
+    print()
+    print("If the cat appears as empty boxes, the console font has no")
+    print("braille glyphs: run with --no-braille, or install one")
+    print("(apt install console-braille) and re-run install-pi.sh.")
+    return 0
+
+
 def main():
     if sys.version_info < (3, 6):
         print("Needs Python 3.6+")
         return 1
+
+    args = sys.argv[1:]
+    for arg in args:
+        if arg in ("-h", "--help"):
+            print(USAGE)
+            return 0
+        if arg == "--braille":
+            braille.force(True)
+        elif arg == "--no-braille":
+            braille.force(False)
+        elif arg == "--check":
+            return _check()
+        else:
+            print("unknown option %r\n" % arg)
+            print(USAGE)
+            return 2
+
+    # ncursesw decides how to encode output from the locale, and it reads
+    # it once, at initscr. Without this it assumes ASCII and the braille
+    # cat goes out as question marks. Harmless when braille is off, and
+    # a bare Pi with no locales set just keeps the C default.
+    try:
+        import locale
+        locale.setlocale(locale.LC_ALL, "")
+    except (ImportError, locale.Error):
+        pass
     try:
         curses.wrapper(run)
     except KeyboardInterrupt:

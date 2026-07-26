@@ -167,7 +167,7 @@ def play(stdscr, profile):
         title = "MAYBE LATER"
 
     ui.message(stdscr, lines, title=title,
-               art=kitty.art("overjoyed") if kitty and caught else None)
+               art=kitty.portrait_art("overjoyed") if kitty and caught else None)
     summary = sess.summary()
     if new_species:
         summary["species"] = new_species

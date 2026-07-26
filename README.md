@@ -11,6 +11,15 @@ python3 main.py
 Needs an 80x24 terminal minimum. Save data lands in `./data/profiles.json`;
 override the location with `$TYPING_TUTOR_DATA`.
 
+```
+python3 main.py --braille      # draw the cat portrait in braille dots
+python3 main.py --no-braille   # force plain ASCII
+python3 main.py --check        # what can this terminal actually do?
+```
+
+See [The braille cat](#the-braille-cat) — it's off unless something turns it
+on, and there are good reasons for that.
+
 ---
 
 ## Testing on a Mac
@@ -391,6 +400,10 @@ but there's no reason to ship them.
 tty1::respawn:/usr/bin/env TERM=linux TYPING_TUTOR_DATA=/data /usr/bin/python3 /opt/typing_tutor/main.py
 ```
 
+This line gets the **ASCII** cat. That's the safe default, and on a Buildroot
+image it's usually the right one — see [The braille cat](#the-braille-cat) for
+what it takes to turn the dots on, and why nothing does it automatically.
+
 `respawn` means quitting the app just restarts it — there's no shell to drop to.
 Do **not** add getty entries for tty2–tty6, or Ctrl+Alt+F2 hands them a prompt.
 
@@ -564,6 +577,95 @@ so there is nothing here for the game to rank.
 
 Cats double as profile icons — the little `(o.o)` face beside each name in
 the picker is that kid's own cat, in that cat's colours.
+
+## The braille cat
+
+The cat's **portrait** — the big one in menus, on the care board and on
+celebration screens — can be drawn in braille dots instead of ASCII. A braille
+character is a 2x4 grid of dots, so the same number of columns carries eight
+times the detail:
+
+```
+  gameplay sprite (10x5)      portrait (22x10)
+      (\_/)                   ⠀⠀⠀⠀⡨⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⡮⡀
+     ( ^ ^ )                  ⠀⠀⠀⡠⣯⣯⣦⣤⣤⣤⣦⣤⣤⣤⣮⣯⡧⡀
+      > ^ <                   ⠀⠀⣴⣿⣿⠿⣿⣿⣿⣿⣿⣿⣿⣿⡿⢿⣿⣷⡄
+     / . \                    ⠀⠸⣿⣿⣥⣤⣬⣿⣿⣿⣿⣿⣿⣯⣤⣤⣽⣿⡿
+     (_) (_)_)                ⠀⠀⠙⠻⢿⣿⣧⠀⡀⢙⢟⠁⡀⢠⣿⣿⠿⠛⠁
+                              ⠀⠀⠀⠀⠀⣼⡿⠷⠾⠷⠶⠿⠶⠿⣿⡄⠀⠀⠀⠀⠀⣤
+                              ⠀⠀⠀⠀⣼⣿⡇⠨⠀⠨⠀⠨⠀⠨⣿⣿⡄⠀⠀⠀⣸⡏
+                              ⠀⠀⠀⣼⣿⣿⡇⠨⠀⠨⠀⠨⠀⠨⣿⣿⣿⡄⠀⢠⡿
+                              ⠀⠀⣼⣿⣿⣿⣧⣬⡄⠀⠀⢨⣤⣬⣿⣿⣿⣿⣤⣿⠃
+                              ⠀⠈⠻⠿⠿⠿⠿⠿⠇⠀⠀⠸⠿⠿⠿⠿⢿⡿⠟⠁
+```
+
+The 10x5 **sprite is unchanged** and still used in every typing mode, because
+half a dozen mode screens place their typing line, soup bowl and pantry lanes
+at fixed rows around it. Only the portrait grows, and only in contexts that
+size themselves to the art.
+
+**It is still the same cat.** The art is authored as a dot bitmap with named
+zones — eyes, ears, coat, tail — which the child's seed fills in, exactly as
+the ASCII cat's genes fill its character slots. A single traced picture would
+have given every kid on the device an identical animal, which is the one thing
+the lateral-variety design can't allow. Siblings still get different cats.
+
+### Why it's off by default
+
+Two things must be true, and they fail differently.
+
+**1. curses must count a braille character as one column.** Detectable, and
+enforced — but *measured*, not assumed. The obvious test, `hasattr(curses,
+"get_wch")`, asks how CPython was compiled, which turns out to be the wrong
+question: the binding writes UTF-8 bytes to `waddstr`, and a widec ncurses
+composes those bytes back into a single character by itself. macOS is exactly
+that case — no `get_wch`, and braille lays out perfectly. So the check draws a
+braille character on an offscreen pad and reads the cursor back. Where it
+really does take three columns, everything drawn to the right of the cat lands
+in the wrong place, and no flag can override the refusal.
+
+**2. The console font must contain U+2800–U+28FF.** *Not* detectable. A console
+with no glyph draws a blank and never says so. So this half is declared rather
+than guessed, and the safe answer is no — a wrong "yes" means a child opens the
+game to a grid of empty boxes where their cat should be.
+
+```bash
+python3 main.py --check
+```
+
+measures the first. Only looking at the screen tells you about the second,
+which is why `--braille` exists.
+
+### Turning it on
+
+| Route | Scope |
+|---|---|
+| `install-pi.sh` | permanent, per device — installs `console-braille`, verifies ncursesw, runs `setfont` on tty1 and sets `TYPING_TUTOR_BRAILLE=1` |
+| `TYPING_TUTOR_BRAILLE=1` | per launch |
+| `--braille` / `--no-braille` | per run, beats everything below it |
+| **Cat picture** on the main menu | per child, saved to their profile |
+
+The menu entry appears only where curses can actually draw it, and hides when
+`--braille` or `--no-braille` already settled the question — a switch that
+can't work is worse than no switch, because a kid flips it, nothing happens,
+and the game looks broken rather than the terminal.
+
+`--no-braille` is the escape hatch. If a font renders the cat as boxes, that
+gets a working game back without reinstalling anything.
+
+### Regenerating the art
+
+`core/braille_art.py` is generated and safe to hand-edit. To rebuild it:
+
+```bash
+python3 tools/build_braille.py --show    # eyeball all eight poses
+python3 tools/build_braille.py           # emit the module
+```
+
+Resizing the art means re-checking `Cat.PORTRAIT_NECK` / `PORTRAIT_HEAD` (where
+a collar and a hat sit) and the panel budget — `ui.menu` clamps an oversized
+panel to the screen rather than complaining, so a panel one row too tall doesn't
+fail, it silently slices the paws off a cat wearing a collar.
 
 ## The daily loop
 

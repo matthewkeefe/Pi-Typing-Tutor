@@ -205,7 +205,7 @@ def pets(stdscr, profile):
          "Steady hands make a happy cat." if score >= 0.5
          else "Every purr counts. Smooth and slow next time."],
         title="PURRRR",
-        art=kitty.art("overjoyed") if kitty else None,
+        art=kitty.portrait_art("overjoyed") if kitty else None,
     )
     return sess.summary()
 
@@ -265,7 +265,7 @@ def _wrap_up(stdscr, kitty, done, total, title, full_line, partial_line):
         stdscr,
         [full_line if done >= total else partial_line],
         title=title,
-        art=kitty.art("overjoyed") if kitty else None,
+        art=kitty.portrait_art("overjoyed") if kitty else None,
     )
 
 
@@ -403,7 +403,7 @@ def win_it_back(stdscr, profile):
          "",
          "Friends again. That's all it wanted."],
         title="PURRRR",
-        art=kitty.art("overjoyed") if kitty else None,
+        art=kitty.portrait_art("overjoyed") if kitty else None,
     )
     fx.clear()
     return True
@@ -425,23 +425,32 @@ def _board_panel(profile, kitty):
     right edge, which on a wide terminal put half a screen of nothing
     between a cat and its own status bars.
     """
+    # Two gauges per row rather than five stacked ones. Every row here is
+    # a row the cat doesn't get, and `ui.menu` clamps the frame to the
+    # screen rather than complaining -- so a stack that was one row too
+    # tall didn't fail, it silently sliced the paws off a cat wearing a
+    # collar. Paired, the whole board fits with the portrait at full size.
+    PAIRS = [cat.CARE_TASKS[i:i + 2] for i in range(0, len(cat.CARE_TASKS), 2)]
+    BAR = 4
+
+    def _cell(task, level):
+        return "%-5s%s" % (cat.CARE_LABELS[task], cat.gauge_bar(level, BAR))
+
     def gauge_lines():
         levels = cat.gauges(profile)
         out = []
-        for task in cat.CARE_TASKS:
-            level = levels[task]
-            attr = cp(C_CORRECT, True) if level >= 1.0 else cp(C_WARN)
-            out.append(("%-6s %s" % (cat.CARE_LABELS[task],
-                                     cat.gauge_bar(level)), attr))
+        for pair in PAIRS:
+            text = " ".join(_cell(t, levels[t]) for t in pair)
+            # Amber if anything in the row wants attention: the row is
+            # the unit now, and a half-green row would read as noise.
+            full = all(levels[t] >= 1.0 for t in pair)
+            out.append((text, cp(C_CORRECT, True) if full else cp(C_WARN)))
         return out
 
-    # Widest a gauge row can ever be, so the frame never reflows as the
-    # bars fill in.
-    hint = max(len("%-6s %s" % (cat.CARE_LABELS[t], cat.gauge_bar(1.0)))
-               for t in cat.CARE_TASKS)
+    # Widest a row can ever be, so the frame never reflows as bars fill.
+    hint = max(len(" ".join(_cell(t, 1.0) for t in pair)) for pair in PAIRS)
     return cat.panel(kitty, lambda: cat.mood_pose(cat.mood(profile)),
-                     lines=gauge_lines, width_hint=hint,
-                     n_lines=len(cat.CARE_TASKS))
+                     lines=gauge_lines, width_hint=hint, n_lines=len(PAIRS))
 
 
 def board(stdscr, profile, play_slot, after_task):
@@ -524,6 +533,6 @@ def board(stdscr, profile, play_slot, after_task):
                 stdscr,
                 lines + ["", "+%d fish   --   everything's open now" % bonus],
                 title=title,
-                art=kitty.art("overjoyed") if kitty else None,
+                art=kitty.portrait_art("overjoyed") if kitty else None,
             )
             return

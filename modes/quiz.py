@@ -281,5 +281,5 @@ def play(stdscr, profile):
         head = "%s liked the company anyway." % name
 
     ui.message(stdscr, [head, ""] + lines, title=title,
-               art=kitty.art("overjoyed" if right else "sit") if kitty else None)
+               art=kitty.portrait_art("overjoyed" if right else "sit") if kitty else None)
     return sess.summary()

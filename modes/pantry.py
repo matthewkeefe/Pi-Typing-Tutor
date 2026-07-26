@@ -334,7 +334,7 @@ def play(stdscr, profile):
             "High score: %d" % profile.get("pantry_high_score", 0),
         ],
         title=headline,
-        art=kitty.art("swat") if kitty else None,
+        art=kitty.portrait_art("swat") if kitty else None,
     )
 
     return sess.summary()

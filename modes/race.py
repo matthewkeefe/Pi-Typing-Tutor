@@ -280,5 +280,5 @@ def play(stdscr, profile):
         lines += ["", "That's your best run on this track."]
 
     ui.message(stdscr, lines, title=title,
-               art=my_cat.art("overjoyed") if my_cat else None)
+               art=my_cat.portrait_art("overjoyed") if my_cat else None)
     return sess.summary()

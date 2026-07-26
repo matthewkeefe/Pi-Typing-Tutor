@@ -19,7 +19,7 @@ import random
 import zlib
 from datetime import date, datetime, timedelta
 
-from core import adaptive, ui
+from core import adaptive, braille, ui
 
 # --- genes ----------------------------------------------------------
 
@@ -576,25 +576,25 @@ FACE_ROW = {
 # All lateral. Different, never better: no tiers, no rarity, and the
 # prices sit close together so no one item reads as the good one.
 ACCESSORIES = {
-    "red_collar": {"art": "-o-", "slot": "neck", "word": "a red collar"},
-    "blue_bandana": {"art": "\\_/", "slot": "neck", "word": "a blue bandana"},
-    "bow_tie": {"art": ">o<", "slot": "neck", "word": "a bow tie"},
-    "sun_hat": {"art": "[_]", "slot": "head", "word": "a sun hat"},
-    "daisy": {"art": ",*,", "slot": "head", "word": "a daisy behind the ear"},
+    "red_collar": {"art": "-o-", "braille": '⠤⠿⠤', "slot": "neck", "word": "a red collar"},
+    "blue_bandana": {"art": "\\_/", "braille": '⡱⣤⠎', "slot": "neck", "word": "a blue bandana"},
+    "bow_tie": {"art": ">o<", "braille": '⡱⠿⠎', "slot": "neck", "word": "a bow tie"},
+    "sun_hat": {"art": "[_]", "braille": '⠏⠉⠹', "slot": "head", "word": "a sun hat"},
+    "daisy": {"art": ",*,", "braille": '⠠⠾⠄', "slot": "head", "word": "a daisy behind the ear"},
 
     # Earned by accumulation rather than bought (#29). They need art here
     # like any other accessory: an item that lands in the inventory but
     # has no entry in this table is silently unwearable, which is the
     # worst possible outcome for something a kid spent a year earning.
-    "milestone_ribbon": {"art": "-8-", "slot": "neck", "word": "a paper ribbon"},
-    "golden_collar": {"art": "=o=", "slot": "neck", "word": "a golden collar"},
-    "silver_bell": {"art": "-Q-", "slot": "neck", "word": "a silver bell"},
-    "comet_charm": {"art": "~*~", "slot": "neck", "word": "a comet charm"},
-    "milestone_tag": {"art": "[i]", "slot": "neck", "word": "a name tag"},
-    "first_key_charm": {"art": "-+-", "slot": "neck", "word": "a key charm"},
-    "half_alphabet_pin": {"art": "-:-", "slot": "neck", "word": "a half pin"},
-    "star_charm": {"art": "-*-", "slot": "neck", "word": "a star charm"},
-    "album_clip": {"art": "-#-", "slot": "neck", "word": "an album clip"},
+    "milestone_ribbon": {"art": "-8-", "braille": '⠤⢿⠤', "slot": "neck", "word": "a paper ribbon"},
+    "golden_collar": {"art": "=o=", "braille": '⠶⠿⠶', "slot": "neck", "word": "a golden collar"},
+    "silver_bell": {"art": "-Q-", "braille": '⠤⢾⠤', "slot": "neck", "word": "a silver bell"},
+    "comet_charm": {"art": "~*~", "braille": '⠔⠾⠢', "slot": "neck", "word": "a comet charm"},
+    "milestone_tag": {"art": "[i]", "braille": '⠇⡆⠸', "slot": "neck", "word": "a name tag"},
+    "first_key_charm": {"art": "-+-", "braille": '⠤⣇⠤', "slot": "neck", "word": "a key charm"},
+    "half_alphabet_pin": {"art": "-:-", "braille": '⠤⠒⠤', "slot": "neck", "word": "a half pin"},
+    "star_charm": {"art": "-*-", "braille": '⠤⠶⠤', "slot": "neck", "word": "a star charm"},
+    "album_clip": {"art": "-#-", "braille": '⠤⠭⠤', "slot": "neck", "word": "an album clip"},
 }
 ACCESSORY_IDS = sorted(ACCESSORIES)
 
@@ -835,13 +835,16 @@ class Cat:
     """A rendered cat. Cheap to build -- make one per screen, not per frame."""
 
     def __init__(self, seed, name=None, growth=0, accessory=None,
-                 secret=False, parent=None):
+                 secret=False, parent=None, profile=None):
         self.seed = int(seed)
         self.name = name or "your cat"
         self.growth = growth
         self.accessory = accessory if accessory in ACCESSORIES else None
         self.secret = bool(secret)
         self.parent = None if parent is None else int(parent)
+        # Kept only so the portrait can read this kid's braille
+        # setting. Nothing about the cat itself comes from here.
+        self._profile = profile
 
         # Family resemblance (#32). Colour and coat come from the parent
         # when there is one, everything else from the kitten's own seed:
@@ -875,7 +878,7 @@ class Cat:
         return cls(data["seed"], data.get("name"), data.get("growth", 0),
                    accessory=worn_accessory(profile),
                    secret=secret_expressed(profile),
-                   parent=data.get("parent"))
+                   parent=data.get("parent"), profile=profile)
 
     # -- appearance --------------------------------------------------
 
@@ -946,7 +949,15 @@ class Cat:
             hot.add(col)
         return "".join(chars), hot
 
-    def _wear(self, rows, pose, growth=None):
+    # Where a collar and a hat go on the 10-row braille portrait. The
+    # ASCII cat's landmarks are found by looking for its "(" ears, which
+    # a dot drawing simply doesn't have, so the portrait states them:
+    # ears on row 0, eyes on row 3, chin on row 4, body from row 5.
+    # Resizing the art means re-checking these two numbers.
+    PORTRAIT_NECK = 5
+    PORTRAIT_HEAD = 0
+
+    def _wear(self, rows, pose, growth=None, dots=False):
         """
         Insert the accessory row, if anything is being worn.
 
@@ -955,31 +966,86 @@ class Cat:
         pose/growth combinations there is no column that is reliably
         blank. Inserting is uniform and cannot damage the art -- with
         nothing worn, this returns `rows` untouched.
+
+        `dots` says these are braille portrait rows, which changes both
+        the glyphs (an ASCII "-o-" across a dot drawing reads as a
+        rendering fault, not as jewellery) and where the row goes.
         """
         if not self.accessory:
             return rows
         item = ACCESSORIES[self.accessory]
-        face = _face_row(pose, self.is_kitten(growth))
-        face = max(0, min(face, len(rows) - 1))
+        neck = item["slot"] == "neck"
 
-        # Centre it on the face, which is the one landmark every pose has.
-        face_text = rows[face][0]
-        open_at = face_text.find("(")
-        close_at = face_text.rfind(")")
         art = item["art"]
-        if open_at >= 0 and close_at > open_at:
-            centre = (open_at + close_at) // 2
-        else:
-            centre = len(face_text) // 2
-        col = max(0, centre - len(art) // 2)
+        if dots and item.get("braille"):
+            art = item["braille"]
 
+        if dots:
+            at = self.PORTRAIT_NECK if neck else self.PORTRAIT_HEAD
+            at = max(0, min(at, len(rows)))
+            centre = max(len(r) for r, _a in rows) // 2
+        else:
+            face = _face_row(pose, self.is_kitten(growth))
+            face = max(0, min(face, len(rows) - 1))
+            # Centre on the face, the one landmark every ASCII pose has.
+            face_text = rows[face][0]
+            open_at = face_text.find("(")
+            close_at = face_text.rfind(")")
+            if open_at >= 0 and close_at > open_at:
+                centre = (open_at + close_at) // 2
+            else:
+                centre = len(face_text) // 2
+            # Neck sits under the face; head goes above the *ears*, which
+            # are the row before the face -- a hat between the ears and
+            # the eyes reads as a hat being worn on the nose.
+            at = face + 1 if neck else max(0, face - 1)
+
+        col = max(0, centre - len(art) // 2)
         line = " " * col + art
         accents = set(range(col, col + len(art)))
-        # Neck sits under the face; head goes above the *ears*, which are
-        # the row before the face -- a hat between the ears and the eyes
-        # reads as a hat being worn on the nose.
-        at = face + 1 if item["slot"] == "neck" else max(0, face - 1)
         return rows[:at] + [(line, accents)] + rows[at:]
+
+    # -- the portrait -------------------------------------------------
+    #
+    # Two sizes of the same cat, for two different jobs.
+    #
+    # `_render` is the 10x5 SPRITE. Gameplay screens position other
+    # things around it at fixed rows -- the typing line, the soup bowl,
+    # the pantry lanes -- so its size is effectively part of their
+    # layout and must not change.
+    #
+    # The portrait is the "here is your cat" picture: menus, the care
+    # board, celebrations. Those contexts size themselves to whatever art
+    # they're handed, which is the only reason the braille cat can be
+    # bigger. At the sprite's 5 rows braille has too few dots to beat
+    # plain ASCII; given 9 it comfortably wins.
+    #
+    # With braille unavailable, both are the ASCII cat and nothing about
+    # any screen changes.
+
+    def _portrait_rows(self, pose="sit", growth=None):
+        if not braille.supported(self._profile):
+            return self._render(pose, growth)
+        rows = braille.cat_rows(self, pose, growth)
+        return self._wear(rows, pose, growth, dots=True)
+
+    def portrait_art(self, pose="sit", growth=None):
+        """Portrait rows as plain text, for `ui.message(art=...)`."""
+        return [text for text, _ in self._portrait_rows(pose, growth)]
+
+    def portrait_width(self, pose="sit", growth=None):
+        return max((len(r) for r in self.portrait_art(pose, growth)), default=0)
+
+    def portrait_height(self, pose="sit", growth=None):
+        return len(self.portrait_art(pose, growth))
+
+    def draw_portrait(self, win, y, x, pose="sit", growth=None):
+        body, accent = self.body_attr, self.accent_attr
+        for i, (row, accents) in enumerate(self._portrait_rows(pose, growth)):
+            ui.safe_addstr(win, y + i, x, row, body)
+            for j in sorted(accents):
+                if j < len(row):
+                    ui.safe_addstr(win, y + i, x + j, row[j], accent)
 
     def art(self, pose="sit", growth=None):
         """Plain text rows -- handy for ui.message art and for tests."""
@@ -1104,8 +1170,11 @@ def panel(kitty, pose="sit", lines=None, min_width=0, width_hint=0,
     """
     if kitty is None:
         return None
-    art_w = max(kitty.width(p) for p in POSES)
-    art_h = max(kitty.height(p) for p in POSES)
+    # Sized across every pose, not just the one asked for: `pose` may be a
+    # callable that returns a different one on each draw, and a frame that
+    # resized under the cat would flicker.
+    art_w = max(kitty.portrait_width(p) for p in POSES)
+    art_h = max(kitty.portrait_height(p) for p in POSES)
     # Never call `lines()` here just to count them -- it resolves colour
     # pairs, and a panel gets built outside curses in tests and tools.
     # A callable must declare how many rows it will draw.
@@ -1116,8 +1185,8 @@ def panel(kitty, pose="sit", lines=None, min_width=0, width_hint=0,
 
     def draw(win, top, left):
         shown = pose() if callable(pose) else pose
-        kitty.draw(win, top, left + max(0, (width - kitty.width(shown)) // 2),
-                   shown)
+        indent = max(0, (width - kitty.portrait_width(shown)) // 2)
+        kitty.draw_portrait(win, top, left + indent, shown)
         rows = lines() if callable(lines) else (lines or [])
         row = top + art_h + 1
         for text, attr in rows:

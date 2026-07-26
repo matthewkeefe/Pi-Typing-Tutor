@@ -306,5 +306,5 @@ def play(stdscr, profile):
     lines += ["", "Best word: %s" % (max(found, key=len) if found else "-")]
 
     ui.message(stdscr, lines, title=title,
-               art=kitty.art("overjoyed" if found else "sit") if kitty else None)
+               art=kitty.portrait_art("overjoyed" if found else "sit") if kitty else None)
     return sess.summary()

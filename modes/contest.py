@@ -172,7 +172,7 @@ def daily_dash(stdscr, profile):
          "%.0f wpm at %.0f%% accuracy."
          % (summary["wpm"], summary["accuracy"])],
         title="TIME!",
-        art=kitty.art("overjoyed") if kitty else None,
+        art=kitty.portrait_art("overjoyed") if kitty else None,
     )
     return summary
 
@@ -192,7 +192,7 @@ def play(stdscr, profile):
              "",
              "The Daily Dash is still there whenever you want it."],
             title="ALL FIVE",
-            art=kitty.art("overjoyed") if kitty else None,
+            art=kitty.portrait_art("overjoyed") if kitty else None,
         )
         return None
 
@@ -208,7 +208,7 @@ def play(stdscr, profile):
              "",
              "(back for another go then)"],
             title="THAT'S ENOUGH FOR TODAY",
-            art=kitty.art("loaf") if kitty else None,
+            art=kitty.portrait_art("loaf") if kitty else None,
         )
         return None
 
@@ -253,7 +253,7 @@ def play(stdscr, profile):
             lines + ["", "%s is yours." % cup_name,
                      "%d fish, and a ribbon for the scrapbook." % fish],
             title="YOU WON THE %s" % cup_name.upper(),
-            art=kitty.art("overjoyed") if kitty else None,
+            art=kitty.portrait_art("overjoyed") if kitty else None,
         )
     else:
         ui.message(
@@ -261,7 +261,7 @@ def play(stdscr, profile):
             lines + ["", contests.tip_for(cup_row, results),
                      "", "Nothing was lost. Have another go tomorrow."],
             title="SO CLOSE",
-            art=kitty.art("sit") if kitty else None,
+            art=kitty.portrait_art("sit") if kitty else None,
         )
 
     return summary

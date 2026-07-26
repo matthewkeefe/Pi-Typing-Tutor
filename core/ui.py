@@ -276,7 +276,13 @@ def menu(stdscr, title, options, subtitle=None, footer=None, art=None,
                     # Left-aligned in its frame: a menu is a list, and a
                     # list reads down its left edge.
                     x = col0
-                    label = label.ljust(min(len(label) + 2, m_w - 2))
+                    # Clip to the frame first. `ljust` only ever pads, so
+                    # a label longer than its box used to be written
+                    # straight through the right border -- invisible
+                    # until the cat panel grew and squeezed this side.
+                    room = max(1, m_w - 2)
+                    label = label[:room]
+                    label = label.ljust(min(len(label) + 2, room))
                 safe_addstr(stdscr, row0 + row, x, label, attr)
                 icon = option_icons[i] if option_icons and i < len(option_icons) else None
                 if icon:

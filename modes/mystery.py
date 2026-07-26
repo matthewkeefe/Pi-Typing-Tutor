@@ -270,7 +270,7 @@ def play(stdscr, profile):
                      "",
                      "Maybe tomorrow! Nothing was lost."],
                     title="MAYBE TOMORROW",
-                    art=kitty.art("loaf") if kitty else None,
+                    art=kitty.portrait_art("loaf") if kitty else None,
                 )
                 break
 
@@ -293,6 +293,6 @@ def play(stdscr, profile):
     lines += ["", "Dishes opened, all time: %d" % profile["mystery_opened"]]
 
     ui.message(stdscr, lines, title=title,
-               art=kitty.art("overjoyed" if opened_count else "sit")
+               art=kitty.portrait_art("overjoyed" if opened_count else "sit")
                if kitty else None)
     return sess.summary()

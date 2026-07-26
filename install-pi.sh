@@ -91,13 +91,65 @@ fi
 mkdir -p "$DATA_DIR"
 chown -R "$USER_NAME:$USER_NAME" "$DATA_DIR"
 
+# ------------------------------------------------------------ braille font
+#
+# The cat's portrait can be drawn in braille dots, which is eight times
+# the detail in the same number of columns. Two things have to be true
+# first, and neither can be discovered later:
+#
+#   1. curses must count a braille character as ONE column. Asked of the
+#      library rather than of Python's build flags, because a widec
+#      ncurses composes UTF-8 inside waddstr even when CPython was
+#      compiled without HAVE_NCURSESW -- macOS is exactly that case, and
+#      testing the build flag wrongly refused a stack that works.
+#   2. the console font must actually contain U+2800-U+28FF. A console
+#      with no glyph draws a blank and never says so, which is why the
+#      game is TOLD rather than left to guess: nothing sets the flag
+#      below except this block, after the font is on the disk.
+#
+# Either check failing is fine. The game falls back to the ASCII cat it
+# has always drawn, and nothing else about any screen changes.
+
+BRAILLE_FONT=""
+say "Checking whether the console can draw the braille cat"
+
+if ! python3 -c "import sys; sys.path.insert(0, '$APP_DIR'); from core import braille; sys.exit(0 if braille._static_wide() else 1)" 2>/dev/null; then
+    echo "  this curses counts a braille character as 3 columns -- keeping the ASCII cat"
+else
+    if ! ls /usr/share/consolefonts/*[Bb]rl*.psf* >/dev/null 2>&1; then
+        echo "  installing console-braille"
+        apt-get install -y console-braille >/dev/null 2>&1 || true
+    fi
+    # Widest first: a 512-glyph font can hold Latin *and* braille, where
+    # a 256-glyph one has to give up the alphabet to fit the dots.
+    BRAILLE_FONT="$(ls -S /usr/share/consolefonts/*[Bb]rl*.psf* 2>/dev/null | head -n1 || true)"
+    if [[ -n "$BRAILLE_FONT" ]]; then
+        echo "  using $(basename "$BRAILLE_FONT")"
+    else
+        echo "  no braille console font available -- keeping the ASCII cat"
+    fi
+fi
+
 say "Setting the launch loop"
+if [[ -n "$BRAILLE_FONT" ]]; then
+    # setfont and the UTF-8 switch happen per boot, on the tty the game
+    # actually runs on -- console-setup doesn't reliably survive on a
+    # headless Pi, and a font that loaded "somewhere" is no use here.
+    BRAILLE_SETUP="    setfont '$BRAILLE_FONT' 2>/dev/null || true
+    printf '\\033%%G'
+"
+    BRAILLE_ENV="TYPING_TUTOR_BRAILLE=1 "
+else
+    BRAILLE_SETUP=""
+    BRAILLE_ENV=""
+fi
+
 cat > "/home/$USER_NAME/.bash_profile" <<EOF
 # Launch the typing tutor on the console and never let go of it.
 if [ "\$(tty)" = "/dev/tty1" ]; then
     trap '' INT TSTP QUIT
-    while true; do
-        TYPING_TUTOR_DATA=$DATA_DIR TERM=linux python3 $APP_DIR/main.py
+${BRAILLE_SETUP}    while true; do
+        ${BRAILLE_ENV}TYPING_TUTOR_DATA=$DATA_DIR TERM=linux python3 $APP_DIR/main.py
         sleep 1
     done
 fi

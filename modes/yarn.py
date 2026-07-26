@@ -222,5 +222,5 @@ def play(stdscr, profile):
     ]
 
     ui.message(stdscr, lines, title=title,
-               art=kitty.art("overjoyed" if caught else "sit") if kitty else None)
+               art=kitty.portrait_art("overjoyed" if caught else "sit") if kitty else None)
     return sess.summary()

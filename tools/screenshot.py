@@ -299,7 +299,12 @@ def render(scene, profile_kind="veteran", h=DEFAULT_H, w=DEFAULT_W):
                 profile = _profile(profile_kind)
                 SCENES[scene][1](stdscr, profile)
                 stdscr.refresh()
-                rows = [stdscr.instr(y, 0, w).decode("utf-8", "replace")
+                # Read by BYTES, not cells. `instr` hands back the
+                # multibyte encoding of the row, so a row of braille is
+                # up to 3 bytes per column -- asking for `w` bytes
+                # returned a third of the line and made a correct screen
+                # look shredded.
+                rows = [stdscr.instr(y, 0, w * 4).decode("utf-8", "replace")
                         .rstrip() for y in range(h)]
             finally:
                 curses.endwin()
