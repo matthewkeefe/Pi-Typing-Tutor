@@ -763,7 +763,11 @@ no guilt messaging anywhere in this game, by design.
   `WARY_MERCY` (how fast the bar drops so it stays winnable).
 - **Care pace** — `core/cat.py`, `GAUGE_FULL_HOURS` / `GAUGE_EMPTY_HOURS` (how
   fast a gauge drifts down) and `modes/care.py`, `WATER_WORDS` / `CLEAN_LINES`
-  / `PURR_REPEATS` (how long each care task runs).
+  / `PURR_REPEATS` — plus `WORDS` in `modes/feed.py` — which together set the
+  daily time commitment. Change them as a group and check the total: the five
+  tasks are the toll before free play opens, and they add up to roughly 80
+  characters, about 90 seconds of typing for a hunt-and-peck five-year-old.
+  They were once 250, which was far too long to ask every day.
 - **Rocket pass threshold** — `modes/rocket.py`, the `85.0` in `play()`.
 - **Dino difficulty ramp** — `modes/dino.py`, `_speed_for()` and `_spawn_gap()`.
 - **Platformer harshness** — `modes/platformer.py`, `RUN_LENGTH` and `LIVES`.

@@ -16,7 +16,12 @@ from core import adaptive, cat, engine, fx, scrapbook, ui
 from core.ui import (cp, safe_addstr, center, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_WRONG)
 
-WORDS = 18
+# Five fish, not eighteen. The care board is five tasks a child is asked
+# to do EVERY day before free play opens, and eighteen words was most of
+# a five-minute typing session on its own -- long past the point where a
+# six-year-old is still enjoying it. Every care task is scaled to match;
+# see modes/care.py.
+WORDS = 5
 FISH = "><>"
 
 BOWL = [
@@ -150,7 +155,12 @@ def play(stdscr, profile):
     sess.finish()
     stdscr.nodelay(False)
 
-    if caught:
+    # The whole bowl, or it isn't fed. Stamping on `caught` meant one
+    # fish and ESC marked the task done for the day -- and since the
+    # board is five such tasks, a kid could tick the entire thing off in
+    # about fifteen seconds without meaning to. The practice still counts
+    # either way: the session is merged below regardless.
+    if caught >= WORDS:
         cat.stamp_care(profile, "food")
 
     name = kitty.name if kitty else "Your cat"

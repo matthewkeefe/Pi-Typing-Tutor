@@ -33,10 +33,22 @@ PURR_PHRASES = [
     "who is a soft cat",
     "the best cat in the house",
 ]
-PURR_REPEATS = 3
-WATER_WORDS = 10
+# --- how long a care day is ------------------------------------------
+#
+# These five tasks are the daily toll before free play opens, so their
+# combined length IS the game's time commitment for a young child. They
+# were set per-task and never added up: together they came to roughly 250
+# characters, which is five minutes of typing at 10 wpm -- before the
+# arcade round for Play, and before five menu round-trips and five result
+# screens. Too long to ask of a six-year-old every single day.
+#
+# Scaled to about 70 characters, anchored on Feed dropping 18 fish to 5.
+# Scaled by CHARACTERS rather than by unit count, because the units are
+# nothing like each other -- one purr phrase is four food words long.
+PURR_REPEATS = 1    # ~20 chars: one phrase, typed evenly
+WATER_WORDS = 3     # ~15 chars
 WATER_MAX_LEN = 7   # a restarting word must never become a wall to climb
-CLEAN_LINES = 4
+CLEAN_LINES = 1     # ~11 chars: it's a chore, it should feel like one
 
 
 # --- a shared, unfailable typing loop --------------------------------
@@ -50,7 +62,10 @@ def _run_units(stdscr, profile, units, draw, restart_on_error=True):
     that word starts over. It costs seconds and nothing else -- there is
     no state anywhere in here that a mistake can subtract from.
 
-    Returns (session, units_completed).
+    Returns (session, units_completed) -- a COUNT, not a flag. Callers
+    must compare it against the number of units before stamping the task
+    done; `if done:` reads as "did anything happen" and is how ESC came
+    to complete a chore a child had barely started.
     """
     sess = engine.Session()
     idx, typed, err = 0, "", False
@@ -154,7 +169,7 @@ def water(stdscr, profile):
         stdscr.refresh()
 
     sess, done = _run_units(stdscr, profile, units, draw, restart_on_error=True)
-    if done:
+    if done >= len(units):
         cat.stamp_care(profile, "water")
     _wrap_up(stdscr, kitty, done, len(units),
              "FRESH WATER", "The bowl is full and not a drop spilled.",
@@ -194,7 +209,7 @@ def pets(stdscr, profile):
         stdscr.refresh()
 
     sess, done = _run_units(stdscr, profile, units, draw, restart_on_error=False)
-    if done:
+    if done >= len(units):
         cat.stamp_care(profile, "pets")
 
     score = engine.evenness(sess.intervals)
@@ -250,7 +265,7 @@ def clean(stdscr, profile):
         stdscr.refresh()
 
     sess, done = _run_units(stdscr, profile, units, draw, restart_on_error=False)
-    if done:
+    if done >= len(units):
         cat.stamp_care(profile, "clean")
     _wrap_up(stdscr, kitty, done, len(units),
              "ALL CLEAN", "Spotless. The cat inspects it and approves.",

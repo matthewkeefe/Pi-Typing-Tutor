@@ -35,6 +35,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import adaptive, cat, profiles, shop  # noqa: E402
+from modes import care, feed  # noqa: E402
 
 # --- keyboard geometry ----------------------------------------------
 #
@@ -62,7 +63,21 @@ for _ch in FAR:
     REACH[_ch] = 0.90
 
 
-WORDS_PER_DRILL = 18     # a care-board Feed drill
+# Imported, not copied. This was hardcoded to 18 and went stale the day
+# Feed was shortened -- the simulator kept reporting the old pacing for a
+# care board that no longer existed, which is the exact failure this tool
+# is supposed to catch in the game.
+WORDS_PER_DRILL = feed.WORDS
+
+# What the five care tasks cost in word-sized units, from the real
+# constants. Only a floor on a kid's day: it's what they type if they do
+# their chores and stop.
+CARE_ONLY_WORDS = (
+    feed.WORDS                                   # Feed
+    + care.WATER_WORDS                           # Water
+    + care.PURR_REPEATS * 5                      # Pets: ~5 words a phrase
+    + care.CLEAN_LINES * 3                       # Clean: 3 groups a line
+)
 
 
 def reach_cost(ch):
@@ -101,8 +116,10 @@ class Persona:
     familiar
         Keystrokes on one key before it counts as learned.
     words_per_day
-        Volume. A care-board Feed drill is ~18 words; most kids will do a
-        few drills and a game.
+        Volume: everything they type in a day, care board plus free play.
+        An ASSUMPTION about the child, not something derived from the
+        game's constants -- shortening the care board does not move this
+        number by itself. See the `care_only` persona for the floor.
     """
 
     def __init__(self, key, label, wpm_start, wpm_ceiling, technique,
@@ -159,6 +176,18 @@ PERSONAS = [
             reach_penalty=0.30, err_start=0.34, err_floor=0.03,
             familiar=300, words_per_day=90,
             note="day one beginner who sticks with it -- the success criteria"),
+    # The floor. Every other persona assumes a kid goes on to play games
+    # after their chores; this one does the board and leaves, so their
+    # whole day is CARE_ONLY_WORDS. It exists because the care board was
+    # shortened for attention span, and the honest question about that is
+    # not "is it shorter" but "does a kid who only does this still get
+    # anywhere". Slowest ability, smallest day: if anything opens here it
+    # opens for everyone.
+    Persona("care_only", "Chores and out: 5 wpm, care board only",
+            wpm_start=5, wpm_ceiling=8, technique="hunt",
+            reach_penalty=0.25, err_start=0.36, err_floor=0.12,
+            familiar=360, words_per_day=CARE_ONLY_WORDS,
+            note="does the five tasks, plays nothing; the shortest real day"),
     Persona("hunt_5", "Day one: hunt-and-peck, 5 wpm",
             wpm_start=5, wpm_ceiling=6, technique="hunt",
             reach_penalty=0.25, err_start=0.36, err_floor=0.12,
