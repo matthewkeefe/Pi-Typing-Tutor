@@ -15,6 +15,7 @@ import curses
 import os
 import random
 import sys
+import time
 from datetime import date
 
 from core import (profiles, badges, bigtext, braille, ui, lessons, adaptive, cat,
@@ -57,6 +58,29 @@ BANNER = [
 # anyone is actually here to use.
 GLYPH_W = 5          # every cat glyph is this wide; the gutter depends on it
 TITLE_ART = bigtext.fit("PI TYPING TUTOR", 78)
+
+# The startup splash: the logo drawn in box-drawing outlines with shade
+# fills, at a size the picker cannot afford. It gets its own screen for a
+# beat and then gets out of the way.
+#
+# Box drawing (U+2500-257F) and the shade blocks (U+2591-2592) are CP437,
+# the same family as the block elements the picker title already uses --
+# if one renders, so does the other. bigtext.ASCII_FALLBACK covers both:
+# with it set, the splash falls back to the plain block-letter title
+# rather than showing a screen of boxes.
+SPLASH_ART = [
+    "┌────┐┌─────┐┌─────┐    ┌─────┐┌─┐┌─┐┌────┐┌─┐┌─┐┌─┐┌───.",
+    "│░┌──┘│░ ─ ░│└─┐░┌─┘    └─┐░┌─┘│░└┘░││░┌┐░││░││░└┤░││░┌_|_",
+    "│▒└──┐│▒┌─┐▒│  │▒│        │▒│  └──┐▒││▒├┴─┘│▒││▒├┐▒││▒└┘ │",
+    "└────┘└─┘ └─┘  └─┘        └─┘  └────┘└─┘   └─┘└─┘└─┘└────┘",
+    "            ┌─────┐┌─┐┌─┐┌─────┐┌────┐┌────┐",
+    "            └─┐░┌─┘│░││░│└─┐░┌─┘│░┌┐░││░┌┐░┤",
+    "              │▒│  │▒└┘▒│  │▒│  │▒└┘▒││▒├┴┐─┐",
+    "              └─┘  └────┘  └─┘  └────┘└─┘ └─┘",
+]
+
+SPLASH_SECONDS = 1.6
+
 
 # The tagline stays plain text. In block letters it comes to 137 columns,
 # and it is the subtitle -- it is supposed to be smaller than the title.
@@ -1723,6 +1747,36 @@ def require_size(stdscr):
         # KEY_RESIZE and anything else just loops and redraws
 
 
+def splash(stdscr):
+    """
+    The logo, once, on the way in. Any key skips it.
+
+    Non-blocking on purpose: a child who is already reaching for the
+    keyboard should never be made to wait for an animation, and a child
+    who isn't gets to look at the cat's name in big letters for a moment.
+    """
+    art = SPLASH_ART
+    if bigtext.ASCII_FALLBACK:
+        art = bigtext.fit("PI TYPING TUTOR", 78) or []
+    h, w = stdscr.getmaxyx()
+    top = max(0, (h - len(art) - 3) // 2)
+
+    stdscr.erase()
+    ui.draw_art(stdscr, top, art, cp(C_TITLE, True))
+    center(stdscr, top + len(art) + 2, TAGLINE, cp(C_PENDING))
+    stdscr.refresh()
+
+    stdscr.nodelay(True)
+    try:
+        deadline = time.monotonic() + SPLASH_SECONDS
+        while time.monotonic() < deadline:
+            if stdscr.getch() != -1:
+                break
+            curses.napms(30)
+    finally:
+        stdscr.nodelay(False)
+
+
 def run(stdscr):
     ui.init_colors()
     curses.curs_set(0)
@@ -1734,6 +1788,7 @@ def run(stdscr):
         curses.set_escdelay(25)
 
     require_size(stdscr)
+    splash(stdscr)
 
     all_profiles = profiles.load_all()
 

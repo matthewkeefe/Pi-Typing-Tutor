@@ -284,6 +284,77 @@ class TestTheTable(unittest.TestCase):
         self.draw([], with_cats=False)
 
 
+class TestSplash(unittest.TestCase):
+    """
+    The startup logo. It gets its own screen because it does not fit on
+    the picker: nine rows against the three the player table can spare.
+    """
+
+    def setUp(self):
+        zero = mock.Mock(return_value=0)
+        self.patches = [
+            mock.patch.multiple("core.ui", cp=zero, cat_color=zero),
+            mock.patch.object(main, "cp", zero),
+            mock.patch("curses.napms", mock.Mock()),
+        ]
+        for p in self.patches:
+            p.start()
+        self.addCleanup(self._stop)
+
+    def _stop(self):
+        for p in self.patches:
+            p.stop()
+
+    def test_it_draws_without_raising(self):
+        for size in ((24, 80), (20, 60)):
+            main.splash(FakeWin(*size))
+
+    def test_it_shows_the_logo_and_the_tagline(self):
+        win = FakeWin()
+        main.splash(win)
+        drawn = "\n".join(win.rows())
+        self.assertIn(main.TAGLINE, drawn)
+        self.assertIn(main.SPLASH_ART[0].strip()[:6], drawn)
+
+    def test_a_key_skips_it(self):
+        """
+        A child already reaching for the keyboard must never be made to
+        wait for an animation.
+        """
+        win = FakeWin()
+        win.getch = lambda: ord(" ")
+        slept = []
+        with mock.patch("curses.napms", lambda ms: slept.append(ms)):
+            main.splash(win)
+        self.assertEqual(slept, [], "kept sleeping after a keypress")
+
+    def test_it_gives_up_the_screen_on_its_own(self):
+        """No key: it still has to end, and soon."""
+        self.assertLessEqual(main.SPLASH_SECONDS, 3.0)
+
+    def test_the_ascii_fallback_avoids_box_drawing(self):
+        """
+        Box drawing and shade blocks are CP437, same family as the
+        picker's block letters -- but the fallback has to cover both or
+        it is not a fallback.
+        """
+        win = FakeWin()
+        with mock.patch.object(bigtext, "ASCII_FALLBACK", True):
+            main.splash(win)
+        drawn = "".join(win.rows())
+        for ch in drawn:
+            self.assertLess(ord(ch), 128, "non-ASCII %r survived" % ch)
+
+    def test_the_art_fits_the_smallest_screen(self):
+        self.assertLessEqual(max(len(r) for r in main.SPLASH_ART), 78)
+        self.assertLessEqual(len(main.SPLASH_ART) + 3, 24)
+
+    def test_the_picker_title_is_still_the_short_one(self):
+        """The splash exists so the picker does NOT have to carry this."""
+        self.assertEqual(len(main.TITLE_ART), 3)
+        self.assertGreater(len(main.SPLASH_ART), len(main.TITLE_ART))
+
+
 class TestEveryLayoutMode(unittest.TestCase):
     """
     ui.menu has three layouts and every one of them must actually run.

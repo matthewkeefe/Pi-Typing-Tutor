@@ -116,6 +116,14 @@ PROFILES = ("new", "veteran", "graduate")
 # point is to see what the real code draws, so call the real function.
 
 
+def _scene_splash(stdscr, profile):
+    """The startup logo, before anything else happens."""
+    import curses
+    import main
+    curses.ungetch(27)          # skip it immediately; we only want the frame
+    main.splash(stdscr)
+
+
 def _scene_picker(stdscr, profile):
     """
     The profile picker: block-letter title, framed table of players.
@@ -276,6 +284,7 @@ def _scene_cats(stdscr, profile):
 
 
 SCENES = {
+    "splash": ("the startup logo", _scene_splash),
     "picker": ("the profile picker: title, framed player table",
                _scene_picker),
     "menu-cat": ("the framed main menu: cat left, options right",
