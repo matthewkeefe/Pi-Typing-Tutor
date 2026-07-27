@@ -101,15 +101,28 @@ question, not a design one.
 Watch for: whether an anxious kid chooses it over Platform Jumper, and
 whether a confident kid finds it boring. Both are useful answers.
 
-## 8. Does Alphabet Soup unlock at the right moment?
+## 8. Is a whole-alphabet bowl exciting or overwhelming to a beginner?
 
-**Phase 6.** Gated at twelve letters, because the starting six yield exactly
-two viable bowls in the whole word list.
+**Phase 6, revised.** The bowl used to be built from the letters a kid had
+unlocked, which forced a twelve-letter gate — the starting six yield exactly
+two viable bowls in the entire word list. It now draws on all twenty-six, so
+the mode is open from the first day and a six-letter kid will meet letters
+they have not been taught.
 
-Watch for: a kid who reaches twelve and doesn't notice a new mode appeared,
-or one who finds it too hard when it arrives.
+That is intended: this is the mode about *finding* words, and you cannot find
+a word out of letters you were never shown. It's safe for progression because
+Alphabet Soup records no per-key data, so unfamiliar tiles can't reach the
+unlock engine. Whether it's *pleasant* is the open question.
 
-If it's wrong: `GATE_LETTERS` in `modes/soup.py`.
+Watch for: a beginner who stares at a bowl of unknown letters and quits, or
+who hunts happily for the two or three words they can see. Also whether they
+type a letter they don't know and go looking for it on the keyboard — that
+would be the best possible outcome and the reason to keep it this way.
+
+If it's wrong: the fallback isn't the old gate but a bias — seed bowls from
+words weighted toward the kid's unlocked letters, so a beginner gets a mostly
+familiar bowl with a couple of new tiles in it. `FULL_ALPHABET` in
+`modes/soup.py` is the single place the pool is chosen.
 
 ## 9. Is Mystery Word's reveal threshold in the right place?
 

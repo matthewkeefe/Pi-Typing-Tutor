@@ -21,9 +21,23 @@ Three things about it are deliberate and easy to break by accident:
 3. **The soup cooling is not a fail state.** The round ends and scores
    whatever was found. There is no way to lose here, only to stop.
 
-The mode hides itself until the kid's alphabet is big enough to build a
-bowl worth solving -- with the starting six letters there are exactly two
-viable bowls in the whole word list.
+THE BOWL IS THE WHOLE ALPHABET
+    Not the kid's unlocked letters. This mode used to build bowls from
+    the unlocked set, which meant it had to hide itself until twelve
+    letters were earned -- the starting six yield exactly two viable
+    bowls in the entire word list.
+
+    Drawing from all twenty-six removes the reason for that gate, so
+    there isn't one any more: Alphabet Soup is there from the first day.
+    A kid meeting `z` in a bowl before they have been taught `z` is the
+    point rather than a problem -- this is the mode about *finding*
+    words, and you cannot find a word out of letters you were never
+    shown.
+
+    Point 2 above is what makes this safe. Because no per-key data is
+    recorded here, unfamiliar letters in the bowl cannot reach the
+    unlock engine, cannot skew a heatmap, and cannot bring a letter
+    forward that the kid hasn't earned in the modes that do teach.
 """
 
 import curses
@@ -35,8 +49,11 @@ from core.ui import (cp, safe_addstr, center, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_WRONG)
 
 ROUND_SECONDS = 90.0
-GATE_LETTERS = 12        # below this the bowl pool is too thin to be a game
 MIN_WORD = 3
+
+# Every letter, regardless of what this kid has unlocked. See the module
+# docstring: the bowl is a puzzle to solve, not a drill to pass.
+FULL_ALPHABET = adaptive.FREQ_ORDER
 
 # Rejections are frequent and completely fine, so they get variety rather
 # than one repeated buzzer. None of these tell the kid they were wrong.
@@ -51,12 +68,15 @@ SLURPS = [
 
 def available(profile):
     """
-    Hidden until the alphabet can actually fill a bowl.
+    Always. The bowl comes from the whole alphabet, so there is always a
+    solvable one, and nothing left for a gate to protect against.
 
-    Cheap on purpose: this runs every time the menu is drawn, and counting
-    genuinely viable bowls takes most of a second on a full alphabet.
+    Kept as a function rather than deleted because `arcade_for` treats a
+    missing `available` and an always-true one identically, and an
+    explicit "yes" is the clearer record of a decision that was once the
+    other way.
     """
-    return len(adaptive.alphabet(profile)) >= GATE_LETTERS
+    return True
 
 
 def score_for(word):
@@ -179,15 +199,16 @@ def _is_enter(key):
 
 def play(stdscr, profile):
     kitty = cat.Cat.from_profile(profile)
-    alphabet = adaptive.alphabet(profile)
     rng = random.Random()
 
-    made = wordlist.make_bowl(alphabet, rng)
+    made = wordlist.make_bowl(FULL_ALPHABET, rng)
     if not made:
+        # Unreachable with the full alphabet -- a guard against a damaged
+        # or replaced words.txt, not against a kid being too early.
         ui.message(stdscr,
                    ["The soup pot is empty!",
                     "",
-                    "Learn a few more letters and come back."],
+                    "Something's wrong with the word list."],
                    title="NOT YET")
         return None
     tiles, solvable = made

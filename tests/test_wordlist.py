@@ -18,7 +18,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core import adaptive, wordlist  # noqa: E402
 
-GATE = 12   # modes/soup.GATE_LETTERS, duplicated to keep this test standalone
+# Alphabet Soup now draws on all 26 letters, so nothing gates on a count
+# any more. This stays as a mid-sized alphabet to check that `viable` and
+# `make_bowl` still behave for a partial one -- other callers pass those.
+MID = 12
 
 
 class TestLoading(unittest.TestCase):
@@ -107,7 +110,7 @@ class TestBowlGeneration(unittest.TestCase):
     """
 
     def test_gated_alphabets_always_clear_the_bar(self):
-        for n in range(GATE, 27):
+        for n in range(MID, 27):
             alpha = adaptive.FREQ_ORDER[:n]
             for trial in range(25):
                 made = wordlist.make_bowl(alpha, random.Random(trial))
@@ -124,7 +127,7 @@ class TestBowlGeneration(unittest.TestCase):
             self.assertIn(len(tiles), wordlist.BOWL_SIZES)
 
     def test_tiles_stay_inside_the_alphabet(self):
-        for n in (GATE, 16, 20):
+        for n in (MID, 16, 20):
             alpha = set(adaptive.FREQ_ORDER[:n])
             for trial in range(15):
                 tiles, _ = wordlist.make_bowl("".join(alpha),
@@ -166,10 +169,10 @@ class TestViability(unittest.TestCase):
         self.assertLess(wordlist.viable(adaptive.START_ALPHABET), 5)
 
     def test_the_gate_point_is_comfortably_playable(self):
-        self.assertGreater(wordlist.viable(adaptive.FREQ_ORDER[:GATE]), 30)
+        self.assertGreater(wordlist.viable(adaptive.FREQ_ORDER[:MID]), 30)
 
     def test_viability_grows_with_the_alphabet(self):
-        small = wordlist.viable(adaptive.FREQ_ORDER[:GATE])
+        small = wordlist.viable(adaptive.FREQ_ORDER[:MID])
         big = wordlist.viable(adaptive.FREQ_ORDER[:18])
         self.assertGreater(big, small)
 

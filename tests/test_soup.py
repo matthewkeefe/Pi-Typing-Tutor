@@ -69,28 +69,40 @@ def a_profile(letters=None):
     return p
 
 
-class TestUnlockGate(unittest.TestCase):
-    def test_hidden_at_the_starting_alphabet(self):
-        self.assertFalse(soup.available(a_profile()))
+class TestNoUnlockGate(unittest.TestCase):
+    """
+    The bowl is the whole alphabet, so the mode is open from day one.
 
-    def test_hidden_just_below_the_gate(self):
-        letters = adaptive.FREQ_ORDER[:soup.GATE_LETTERS - 1]
-        self.assertFalse(soup.available(a_profile(letters)))
+    It used to hide until twelve letters were unlocked, because a bowl
+    built from the *unlocked* set is unsolvable early -- the starting six
+    letters yield exactly two viable bowls in the entire word list.
+    Sourcing the bowl from all twenty-six removed the reason for the gate
+    rather than merely relaxing it.
+    """
 
-    def test_available_at_the_gate(self):
-        letters = adaptive.FREQ_ORDER[:soup.GATE_LETTERS]
-        self.assertTrue(soup.available(a_profile(letters)))
+    def test_open_to_a_brand_new_kid(self):
+        self.assertTrue(soup.available(a_profile()))
 
-    def test_available_all_the_way_up(self):
-        for n in range(soup.GATE_LETTERS, 27):
+    def test_open_at_every_alphabet_size(self):
+        for n in range(1, 27):
             self.assertTrue(soup.available(a_profile(adaptive.FREQ_ORDER[:n])), n)
 
-    def test_the_gate_is_cheap_enough_to_run_on_every_menu_draw(self):
+    def test_the_bowl_ignores_what_the_kid_has_unlocked(self):
+        """A six-letter kid and a full-alphabet kid draw from one pool."""
+        self.assertEqual(sorted(soup.FULL_ALPHABET),
+                         sorted(adaptive.FREQ_ORDER))
+        self.assertEqual(len(soup.FULL_ALPHABET), 26)
+
+    def test_it_no_longer_reads_the_profile_alphabet(self):
         """
-        Counting genuinely viable bowls takes most of a second on a full
-        alphabet; the gate must not do that. 2000 calls in well under a
-        second is the bar.
+        The bug this replaces would be silent: pass the unlocked set to
+        make_bowl and an early kid gets "the soup pot is empty" instead
+        of a game.
         """
+        self.assertNotIn("adaptive.alphabet(", body())
+        self.assertIn("make_bowl(FULL_ALPHABET", body())
+
+    def test_the_check_is_cheap_enough_for_every_menu_draw(self):
         import time
         p = a_profile(adaptive.FREQ_ORDER)
         t = time.time()
@@ -98,9 +110,17 @@ class TestUnlockGate(unittest.TestCase):
             soup.available(p)
         self.assertLess(time.time() - t, 0.5)
 
-    def test_the_gate_is_where_bowls_become_plentiful(self):
-        at_gate = wordlist.viable(adaptive.FREQ_ORDER[:soup.GATE_LETTERS])
-        self.assertGreater(at_gate, 30)
+    def test_the_full_alphabet_gives_plenty_of_bowls(self):
+        self.assertGreater(wordlist.viable(soup.FULL_ALPHABET), 30)
+
+    def test_a_beginner_actually_gets_a_solvable_bowl(self):
+        """The thing the gate existed to prevent, now simply not true."""
+        import random
+        made = wordlist.make_bowl(soup.FULL_ALPHABET, random.Random(7))
+        self.assertIsNotNone(made)
+        tiles, solutions = made
+        self.assertGreaterEqual(len(solutions), 1)
+        self.assertTrue(all(t.isalpha() for t in tiles))
 
 
 class TestNothingIsPenalised(unittest.TestCase):
@@ -153,8 +173,13 @@ class TestCaptureStaysOff(unittest.TestCase):
         for banned in ('profile["keys"]', "adaptive.merge", "adaptive.record"):
             self.assertNotIn(banned, body(), banned)
 
-    def test_alphabet_is_only_read_not_written(self):
-        self.assertIn("adaptive.alphabet(profile)", body())
+    def test_the_unlocked_alphabet_is_neither_read_nor_written(self):
+        """
+        It used to be read, to build the bowl. Now the bowl is all 26
+        letters and the kid's unlocked set is none of this mode's
+        business in either direction.
+        """
+        self.assertNotIn("adaptive.alphabet(", body())
         self.assertNotIn('profile["alphabet"] =', body())
 
 
@@ -305,11 +330,12 @@ class TestRegistration(unittest.TestCase):
         labels = [lbl for _, _, lbl, _ in main.ARCADE]
         self.assertIn("Alphabet Soup", labels)
 
+        # No longer gated: on the menu for a brand-new kid too.
         new_kid = a_profile()
-        self.assertNotIn("Alphabet Soup",
-                         [lbl for _, _, lbl, _ in main.arcade_for(new_kid)])
+        self.assertIn("Alphabet Soup",
+                      [lbl for _, _, lbl, _ in main.arcade_for(new_kid)])
 
-        older = a_profile(adaptive.FREQ_ORDER[:soup.GATE_LETTERS])
+        older = a_profile(adaptive.FREQ_ORDER)
         self.assertIn("Alphabet Soup",
                       [lbl for _, _, lbl, _ in main.arcade_for(older)])
 

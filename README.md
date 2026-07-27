@@ -147,7 +147,8 @@ can before the soup cools. Every other mode shows you what to type — this one
 makes you find it, which is spelling and vocabulary. A word that isn't in the list
 gets a slurp and nothing else: no lost time, no lost score, no lost fish, because
 guessing is how you find words. The soup cooling ends the round and scores it;
-there's no way to lose, only to stop. Appears once you've unlocked twelve letters —
+there's no way to lose, only to stop. The bowl is drawn from the whole
+alphabet rather than the letters you've unlocked, so it's there from day one —
 below that the word list can't build a bowl worth solving.
 
 **Mystery Word** — the cat paws at a covered dish with a word written under
@@ -443,7 +444,7 @@ modes/dino.py         endless letter chomper
 modes/platformer.py   accuracy-focused jumper (the cat is the jumper)
 modes/yarn.py         accuracy drill with no lives and nothing to lose
 modes/pantry.py       word arcade: shoo mice off the food bowl
-modes/soup.py         anagram word-builder (unlock-gated at 12 letters)
+modes/soup.py         anagram word-builder (whole alphabet, never gated)
 modes/mystery.py      hidden-word deduction, then spell it out
 modes/quiz.py         type-the-answer trivia from data/quiz.txt
 modes/race.py         asynchronous ghost racing on shared tracks
