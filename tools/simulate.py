@@ -176,6 +176,18 @@ PERSONAS = [
             reach_penalty=0.30, err_start=0.34, err_floor=0.03,
             familiar=300, words_per_day=90,
             note="day one beginner who sticks with it -- the success criteria"),
+    # Measured from an actual five-year-old, and slower than anything
+    # else here by a wide margin: he hunts for every single key, and the
+    # FINDING is most of the time -- 1-2 wpm, which is 5-10 characters a
+    # minute. Every other persona in this file starts at 5 wpm, so every
+    # pacing number the tool has ever printed assumed a child two to five
+    # times faster than the one it is actually for.
+    Persona("finding_keys", "Finding each key: 1-2 wpm, real five-year-old",
+            wpm_start=1.5, wpm_ceiling=6, technique="hunt",
+            reach_penalty=0.35, err_start=0.40, err_floor=0.14,
+            familiar=400, words_per_day=CARE_ONLY_WORDS,
+            note="the actual youngest playtester; the real floor"),
+
     # The floor. Every other persona assumes a kid goes on to play games
     # after their chores; this one does the board and leaves, so their
     # whole day is CARE_ONLY_WORDS. It exists because the care board was

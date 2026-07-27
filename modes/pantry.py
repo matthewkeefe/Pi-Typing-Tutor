@@ -37,13 +37,24 @@ BOWL = [
 BOWL_W = 9
 
 
-class Mouse:
-    __slots__ = ("word", "x", "row")
+# Mice HOP rather than slide.
+#
+# They used to move a fraction of a column every frame, which is smooth
+# and, at the speeds this ramps to, unreadable: the word is a moving
+# target the whole time and a kid is trying to read it, not admire it.
+# Hopping covers the same ground at the same average speed, but the word
+# holds still between jumps, so there is always a moment to read it in.
+HOP = 3                 # columns per jump
 
-    def __init__(self, word, x, row):
+
+class Mouse:
+    __slots__ = ("word", "x", "row", "next_hop")
+
+    def __init__(self, word, x, row, next_hop=0.0):
         self.word = word
         self.x = float(x)
         self.row = row
+        self.next_hop = next_hop
 
     @property
     def word_x(self):
@@ -226,13 +237,19 @@ def play(stdscr, profile):
             if word is not None:
                 pool.remove(word)
                 row = lane_top + rng.randrange(lane_rows)
-                mice.append(Mouse(word, w - 3, row))
+                mice.append(Mouse(word, w - 3, row,
+                                  next_hop=now + HOP / speed_for(score)))
             next_spawn = now + spawn_gap(score)
 
         # --- move ---
+        # Same columns per second as before, delivered in jumps. Each
+        # mouse keeps its own clock so they don't all twitch in unison,
+        # which would read as the screen stuttering rather than as mice.
         speed = speed_for(score)
         for m in mice:
-            m.x -= speed * dt
+            if now >= m.next_hop:
+                m.x -= HOP
+                m.next_hop = now + HOP / speed
 
         # --- anything reaching the bowl ---
         survivors = []

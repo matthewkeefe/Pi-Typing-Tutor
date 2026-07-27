@@ -117,7 +117,30 @@ def _hero_anchor(index, current, seed, stdscr):
     return px + 2, py
 
 
+def _impatient(stdscr):
+    """
+    True if a key is waiting -- they've already started the next word.
+
+    The key is pushed back rather than swallowed, so the keystroke that
+    cut the animation short still counts toward the word it was meant for.
+    """
+    stdscr.nodelay(True)
+    try:
+        key = stdscr.getch()
+    finally:
+        stdscr.nodelay(False)
+    if key == -1:
+        return False
+    curses.ungetch(key)
+    return True
+
+
 def _animate_jump(stdscr, words, frm, to, seed, lives, streak, draw):
+    """
+    The leap. Bails the moment the kid types, because half a second of
+    animation between words is charming at 10 wpm and an obstruction at
+    30 -- and this fires after every single correct word.
+    """
     x0, y0 = _hero_anchor(frm, to, seed, stdscr)
     x1, y1 = _hero_anchor(to, to, seed, stdscr)
     steps = 12
@@ -129,9 +152,14 @@ def _animate_jump(stdscr, words, frm, to, seed, lives, streak, draw):
             fx.spawn("puff", y1 + 1, x1)   # dust on a stuck landing
         draw((x, y), "leap" if s < steps else "stand")
         curses.napms(28)
+        if _impatient(stdscr):
+            draw((x1, y1), "stand")        # land immediately, don't teleport
+            return
     for _ in range(6):                      # let the dust settle
         draw((x1, y1), "stand")
         curses.napms(28)
+        if _impatient(stdscr):
+            return
 
 
 def _animate_fall(stdscr, pos, draw):
@@ -189,13 +217,21 @@ def play(stdscr, profile):
                 best_streak = max(best_streak, streak)
                 nxt = current + 1
 
+                # Advance BEFORE animating. The jump used to draw with the
+                # old index, so for half a second after finishing a word
+                # the screen still showed that word -- and a kid typing
+                # fast, seeing no change, types it again. Those keys are
+                # then matched against the word that did silently change,
+                # and they get a slip they didn't make.
+                current = nxt
+                typed = ""
+
                 def jdraw(p, pose):
                     _draw_world(stdscr, words, current, seed, p, pose, kitty,
                                 lives, streak, "")
 
-                _animate_jump(stdscr, words, current, nxt, seed, lives, streak, jdraw)
-                current = nxt
-                typed = ""
+                _animate_jump(stdscr, words, nxt - 1, nxt, seed, lives, streak,
+                              jdraw)
         elif shop.take_effect(profile, shop.EFFECT_SHIELD):
             # The treat forgives exactly one slip: the cat wobbles, the
             # kid keeps their footing, and the word carries on. It never

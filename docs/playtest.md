@@ -35,8 +35,10 @@ simulation is a guess about children.
 Watch for: a kid who stops noticing new letters arriving, or one who gets a
 burst of three and looks overwhelmed rather than pleased.
 
-If it's wrong: `READY_SAMPLES` and `READY_ACC` in `core/adaptive.py` set how
-much practice earns a letter; `BURST_ACC` and `BURST_MAX` set how many
+If it's wrong: `READY_ACC` in `core/adaptive.py` sets how accurate a key must
+be to earn a new letter. It was 0.85, which simulation showed was a wall for a
+1-2 wpm five-year-old — he settles near 86% and would never have unlocked a
+seventh letter. Now 0.75. `READY_SAMPLES` turned out not to matter at all; `BURST_ACC` and `BURST_MAX` set how many
 arrive at once.
 
 ## 2. Do they find the heatmap?

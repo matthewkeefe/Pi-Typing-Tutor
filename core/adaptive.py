@@ -79,7 +79,32 @@ MASTER_MS = 12000.0 / MASTER_WPM_PER_KEY   # 333 ms
 MIN_SAMPLES = 20    # hits before a key can go green
 
 READY_SAMPLES = 40  # hits before the unlock gate will judge a key at all
-READY_ACC = 0.85    # get it right this often and you've earned a new letter
+READY_ACC = 0.75    # get it right this often and you've earned a new letter
+
+# READY_ACC was 0.85, and 0.85 was a wall.
+#
+# A five-year-old hunting for every key types at 1-2 wpm and settles
+# around 86% accuracy on a key he genuinely knows -- he can find it, he
+# just fumbles the neighbours on the way. That put him a whisker under
+# the gate, and simulation over a full year said he would never unlock a
+# seventh letter. Not "slowly": never. Meanwhile a kid two wpm faster
+# cleared it in three weeks, so the gate wasn't grading ability, it was
+# grading which side of one line a child's fumble rate happened to land.
+#
+# The sample count turned out to be irrelevant -- 25 hits or 40 changes
+# nothing for any persona. Accuracy was the entire gate.
+#
+# Note what this does NOT loosen. Unlocking says "you've practised this
+# enough, here is something new to play with". Mastery is a separate,
+# untouched bar: `is_green` still wants 90% AND 333 ms/key. A kid can
+# now collect letters faster than he turns them green, which is the
+# right way round for someone still learning where the keys live.
+#
+# Simulated at 0.75: the 1-2 wpm kid reaches his 7th letter on day 68 and
+# his 12th on day 229, instead of never and never. Fluent kids are
+# unaffected or slightly quicker. Re-run tools/simulate.py after touching
+# this -- both gate bugs this project has had were of the same shape, one
+# element blocking everything, and both were invisible to the tests.
 
 # How many letters one session can be worth.
 #

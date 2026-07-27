@@ -524,7 +524,7 @@ under the modes rather than as a screen of its own:
 - Each key gets a 0..1 confidence blending speed and accuracy, scaled across
   the whole journey this game is for: **5 wpm scores zero, 40 wpm scores full.**
 - Two different bars, for two different questions. **Ready** is the unlock gate:
-  40 hits at 85% accuracy, with *no speed requirement at all* — a kid hunting
+  40 hits at 75% accuracy, with *no speed requirement at all* — a kid hunting
   and pecking is typing correctly, just slowly, and there's no reason to withhold
   the alphabet from them until they get fast. **Green** is mastery: 40 wpm on
   that key, accurately. All 26 green is the win condition.
