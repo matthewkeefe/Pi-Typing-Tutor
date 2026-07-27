@@ -36,11 +36,29 @@ class TestBlockLetters(unittest.TestCase):
         """A title is never worth taking the screen down for."""
         self.assertEqual(bigtext.render("%"), bigtext.render(" "))
 
-    def test_the_font_is_a_consistent_rectangle(self):
-        for ch, rows in bigtext.FONT.items():
-            self.assertEqual(len(rows), bigtext.HEIGHT, ch)
-            for r in rows:
-                self.assertEqual(len(r), bigtext.WIDTH, ch)
+    def test_each_font_is_a_consistent_rectangle(self):
+        for name, font in (("FONT", bigtext.FONT), ("NARROW", bigtext.NARROW)):
+            cols = len(font[" "][0])   # columns, not rows
+            for ch, rows in font.items():
+                self.assertEqual(len(rows), bigtext.HEIGHT, "%s %s" % (name, ch))
+                for r in rows:
+                    self.assertEqual(len(r), cols, "%s %s" % (name, ch))
+
+    def test_the_two_fonts_cover_the_same_letters(self):
+        self.assertEqual(set(bigtext.FONT), set(bigtext.NARROW))
+
+    def test_narrow_really_is_narrower(self):
+        self.assertLess(bigtext.width("PI TYPING TUTOR", bigtext.NARROW),
+                        bigtext.width("PI TYPING TUTOR", bigtext.FONT))
+
+    def test_fit_drops_to_narrow_only_when_it_has_to(self):
+        wide = bigtext.width("PI", bigtext.FONT)
+        self.assertEqual(bigtext.fit("PI", wide), bigtext.render("PI", bigtext.FONT))
+        self.assertEqual(bigtext.fit("PI TYPING TUTOR", 78),
+                         bigtext.render("PI TYPING TUTOR", bigtext.NARROW))
+
+    def test_fit_gives_up_rather_than_overflowing(self):
+        self.assertIsNone(bigtext.fit("PI TYPING TUTOR", 10))
 
     def test_letters_are_distinguishable_from_each_other(self):
         drawn = {ch: "\n".join(bigtext.render(ch)) for ch in bigtext.FONT}
@@ -73,10 +91,12 @@ class TestTitle(unittest.TestCase):
         self.assertLess(len(main.TAGLINE), max(len(r) for r in main.TITLE_ART))
         self.assertGreater(bigtext.width(main.TAGLINE), 80)
 
-    def test_title_and_tagline_leave_room_for_the_table(self):
-        """24 rows total, and the players still have to fit under it."""
-        used = len(main.TITLE_ART) + 1 + 1 + 1   # art, title, tagline, gap
-        self.assertLessEqual(used, 10)
+    def test_the_title_is_one_line(self):
+        """
+        Three rows, not six. This is the entire reason the narrow font
+        exists -- see the table test below for what the rows buy.
+        """
+        self.assertEqual(len(main.TITLE_ART), 3)
 
 
 class FakeWin:
@@ -85,6 +105,10 @@ class FakeWin:
     def __init__(self, h=24, w=80):
         self.h, self.w = h, w
         self.grid = [[" "] * w for _ in range(h)]
+        # Every write, in order. The final grid is not enough: a row
+        # drawn outside its frame gets painted over by the footer, so
+        # the damage is invisible by the time the screen settles.
+        self.calls = []
 
     def getmaxyx(self):
         return (self.h, self.w)
@@ -95,6 +119,7 @@ class FakeWin:
         if x < 0 or x + len(text) > self.w:
             raise AssertionError("off-screen cols %d..%d: %r"
                                  % (x, x + len(text), text))
+        self.calls.append((y, x, text))
         for i, ch in enumerate(text):
             self.grid[y][x + i] = ch
 
@@ -158,16 +183,45 @@ class TestTheTable(unittest.TestCase):
                     break
         return cols
 
-    def test_names_and_actions_share_one_left_edge(self):
-        """
-        The whole point of the gutter. A row with no cat must not slide
-        left to where the glyphs are.
-        """
+    def test_all_the_names_share_one_left_edge(self):
         names = ["Anne", "Arthur", "Betsey", "Matt"]
-        rows = self.draw(names)
-        cols = self.name_columns(rows, names + ["+ New player", "Quit"])
+        cols = self.name_columns(self.draw(names), names)
         self.assertEqual(len(set(cols.values())), 1,
-                         "ragged left edge: %r" % cols)
+                         "ragged names: %r" % cols)
+
+    def test_all_the_actions_share_one_left_edge(self):
+        acts = ["+ New player", "Delete a player", "Quit"]
+        cols = self.name_columns(self.draw(["Anne", "Matt"]), acts)
+        self.assertEqual(len(set(cols.values())), 1,
+                         "ragged actions: %r" % cols)
+
+    def test_actions_line_up_with_the_glyphs_not_the_names(self):
+        """
+        The actions are a separate section under the rule. Indenting them
+        to meet the names would say they are more people.
+        """
+        rows = self.draw(["Anne", "Matt"])
+        name_row = [r for r in rows if "Anne" in r][0]
+        act_row = [r for r in rows if "+ New player" in r][0]
+        glyph_col = min(name_row.find(c) for c in "(</"
+                        if name_row.find(c) > name_row.index("|"))
+        self.assertEqual(act_row.index("+ New player"), glyph_col)
+        self.assertLess(act_row.index("+ New player"), name_row.index("Anne"))
+
+    def test_a_rule_separates_the_people_from_the_actions(self):
+        rows = self.draw(["Anne", "Matt"])
+        rules = [i for i, r in enumerate(rows)
+                 if r.strip().startswith("|-") and r.strip().endswith("-|")]
+        self.assertEqual(len(rules), 1, "expected exactly one divider")
+        last_name = max(i for i, r in enumerate(rows) if "Matt" in r)
+        first_act = min(i for i, r in enumerate(rows) if "+ New player" in r)
+        self.assertLess(last_name, rules[0])
+        self.assertLess(rules[0], first_act)
+
+    def test_no_rule_on_a_device_with_no_players(self):
+        """Nothing to separate: a bare rule would be a line to nowhere."""
+        rows = self.draw([], with_cats=False)
+        self.assertFalse([r for r in rows if r.strip().startswith("|-")])
 
     def test_the_longest_entry_is_not_truncated(self):
         """The bug the frame width had: 'Delete a play'."""
@@ -199,6 +253,27 @@ class TestTheTable(unittest.TestCase):
         rows = self.draw([], with_cats=False)
         row = [r for r in rows if "+ New player" in r][0]
         self.assertLess(row.index("+ New player") - row.index("|"), 6)
+
+    def test_a_full_household_fits_without_scrolling(self):
+        """
+        The vertical budget, asserted where it actually matters.
+
+        Four kids plus three actions plus the divider needs fourteen rows
+        of frame, and there are only twenty-four rows in the world. A
+        title one row taller than it should be pushes the last action out
+        and the list starts scrolling -- which is how "it fits" quietly
+        stops being true. Checking the arithmetic in the abstract missed
+        this; checking the drawn screen does not.
+        """
+        rows = self.draw(["Anne", "Arthur", "Betsey", "Matt"])
+        for wanted in ("Anne", "Matt", "+ New player", "Delete a player",
+                       "Quit"):
+            self.assertTrue(any(wanted in r for r in rows),
+                            "%r fell off the screen" % wanted)
+        self.assertTrue(any(r.strip().startswith("|-") for r in rows),
+                        "no room left for the divider")
+        self.assertFalse(any("more" in r for r in rows),
+                         "the list had to scroll")
 
     def test_everything_stays_on_an_eighty_by_twentyfour_screen(self):
         # FakeWin raises on any out-of-bounds write, so reaching here is
@@ -235,6 +310,37 @@ class TestFramedMenuSizing(unittest.TestCase):
         win = FakeWin()
         ui.menu(win, "Title", options, framed=True)
         return win.rows()
+
+    def test_a_squeezed_divider_is_dropped_not_drawn_through_the_frame(self):
+        """
+        When the box is too short for the rule, the rule goes -- it does
+        not get drawn anyway.
+
+        Reserving three rows for a divider that then scrolls out of view
+        left blank rows sitting under a "v more". Taking the rows back
+        fixed that and caused the opposite: the boundary came back into
+        view, the rule was drawn without room for it, and an option
+        landed on top of the frame's bottom edge.
+        """
+        opts = ["row %d" % i for i in range(12)]
+        art = ["#" * 40] * 9        # a tall title, squeezing the box
+        win = FakeWin()
+        ui.menu(win, "T", opts, art=art, framed=True, divider_after=3)
+        tops = [y for y, _x, t in win.calls if t.startswith(".-")]
+        bottoms = [y for y, _x, t in win.calls if t.startswith("'-")]
+        self.assertTrue(tops and bottoms, "no frame was drawn")
+        top_y, bottom_y = tops[0], bottoms[0]
+        for y, _x, text in win.calls:
+            if "row " in text:
+                self.assertGreater(y, top_y, "option above its frame")
+                self.assertLess(y, bottom_y,
+                                "option drawn on or below the frame edge")
+
+    def test_the_divider_survives_when_there_is_room(self):
+        """Guard: the test above must not pass by never drawing one."""
+        win = FakeWin()
+        ui.menu(win, "T", ["a", "b", "c", "d"], framed=True, divider_after=1)
+        self.assertTrue(any(r.strip().startswith("|-") for r in win.rows()))
 
     def test_a_long_option_is_not_clipped_by_its_own_frame(self):
         long = "Something considerably longer than a name"

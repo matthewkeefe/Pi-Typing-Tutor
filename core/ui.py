@@ -190,7 +190,7 @@ def frame(win, top, left, height, width, title=None, attr=0):
 def menu(stdscr, title, options, subtitle=None, footer=None, art=None,
          draw_extra=None, option_icons=None, tick_ms=110,
          panel=None, panel_title=None, framed=False, icon_gutter=0,
-         frame_title=None):
+         frame_title=None, divider_after=None):
     """
     Arrow-key menu. Returns the selected index, or -1 if the user
     backs out with q / ESC.
@@ -261,27 +261,53 @@ def menu(stdscr, title, options, subtitle=None, footer=None, art=None,
                 # +6, not +4: two columns for the "> " marker and four
                 # for the borders and their padding. At +4 the longest
                 # entry lost its last two characters -- "Delete a play".
+                spacer = 0
                 inner = max(len(o) for o in options) + 6
                 box_w = min(w - 4, max(28, inner))
-                box_h = min(max(5, h - top - 2), len(options) + 4)
+                # A divider costs three rows: a blank, the rule, a blank.
+                spacer = 3 if divider_after is not None else 0
+                box_h = min(max(5, h - top - 2),
+                            len(options) + 4 + spacer)
                 left = max(1, (w - box_w) // 2)
                 m_top, m_left, m_h, m_w = frame(stdscr, top, left, box_h,
                                                 box_w, frame_title,
                                                 cp(C_PENDING))
                 row0, col0, avail = m_top + 1, m_left + 1, m_h - 2
+                rule = (left, box_w)
             else:
                 row0, col0, avail = top, None, len(options)
+                rule, spacer = None, 0
 
             # The menu outgrew the screen once Phase 6 added modes: at
             # 80x24 the last four entries -- including Quit -- fell off
             # the bottom. Scroll a window that always contains the
             # selection rather than trusting the list to stay short.
             avail = max(1, avail)
-            first = 0
-            if len(options) > avail:
-                first = min(max(0, idx - avail // 2), len(options) - avail)
-            shown = list(enumerate(options))[first:first + avail]
+            def window(room):
+                room = max(1, room)
+                start = 0
+                if len(options) > room:
+                    start = min(max(0, idx - room // 2), len(options) - room)
+                return start, list(enumerate(options))[start:start + room]
 
+            # A visible divider costs three rows, so they're taken out of
+            # the budget first. But if the boundary scrolls out of view
+            # there is no divider to make room for, and holding the rows
+            # back would push options off the bottom to reserve space for
+            # something that is no longer drawn -- blank rows under a
+            # "v more". So: try it with the rows reserved, and if the
+            # divider didn't make the cut, take them back.
+            first, shown = window(avail - spacer)
+            drawing_rule = bool(spacer) and any(i == divider_after
+                                                for i, _o in shown)
+            if spacer and not drawing_rule:
+                # Reclaiming the rows can pull the boundary back into
+                # view -- and then there is no longer room for the rule
+                # it would need, so it stays off. Drawing it anyway put
+                # an option straight through the frame's bottom edge.
+                first, shown = window(avail)
+
+            slip = 0            # rows pushed down by a divider already drawn
             for row, (i, opt) in enumerate(shown):
                 selected = i == idx
                 label = ("> " + opt) if selected else ("  " + opt)
@@ -300,7 +326,8 @@ def menu(stdscr, title, options, subtitle=None, footer=None, art=None,
                     room = max(1, m_w - 2)
                     label = label[:room]
                     label = label.ljust(min(len(label) + 2, room))
-                safe_addstr(stdscr, row0 + row, x, label, attr)
+                y = row0 + row + slip
+                safe_addstr(stdscr, y, x, label, attr)
                 icon = option_icons[i] if option_icons and i < len(option_icons) else None
                 if icon:
                     text, icon_attr = icon
@@ -313,7 +340,16 @@ def menu(stdscr, title, options, subtitle=None, footer=None, art=None,
                         ix = x + 2
                     else:
                         ix = max(0, x - len(text) - 1)
-                    safe_addstr(stdscr, row0 + row, ix, text, icon_attr)
+                    safe_addstr(stdscr, y, ix, text, icon_attr)
+
+                # A rule across the box, separating who you are from what
+                # you can do. Drawn from the frame's own edge so it meets
+                # the sides rather than floating inside them.
+                if drawing_rule and i == divider_after and rule:
+                    r_left, r_w = rule
+                    safe_addstr(stdscr, y + 2, r_left,
+                                "|" + "-" * (r_w - 2) + "|", cp(C_PENDING))
+                    slip += 3
 
             if col0 is not None and len(options) > avail:
                 # Say so, rather than letting the list look finished.

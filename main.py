@@ -51,10 +51,12 @@ BANNER = [
     "  |_| |_| |_|_|   |_____| (_) |_| |",
 ]
 
-# The title, in block letters. Two lines because "PI TYPING TUTOR" on one
-# is 90 columns and the screen is 80.
+# The title, in block letters, on ONE line: `fit` drops to the narrower
+# font to make 74 columns out of 89. That costs a little letter width and
+# buys three rows, which go to the player table underneath -- the part
+# anyone is actually here to use.
 GLYPH_W = 5          # every cat glyph is this wide; the gutter depends on it
-TITLE_ART = bigtext.block(["PI TYPING", "TUTOR"])
+TITLE_ART = bigtext.fit("PI TYPING TUTOR", 78)
 
 # The tagline stays plain text. In block letters it comes to 137 columns,
 # and it is the subtitle -- it is supposed to be smaller than the title.
@@ -220,10 +222,11 @@ def offer_hatch(stdscr, all_profiles, profile):
 def pick_profile(stdscr, all_profiles):
     while True:
         names = sorted(all_profiles.keys())
-        options = names + ["+ New player"]
+        actions = ["+ New player"]
         if names:
-            options.append("Delete a player")
-        options.append("Quit")
+            actions.append("Delete a player")
+        actions.append("Quit")
+        options = names + actions
 
         # Cats double as profile icons -- on a shared device the glyph is
         # how a kid spots their own row before they can read the names.
@@ -234,14 +237,18 @@ def pick_profile(stdscr, all_profiles):
         for n in names:
             c = cat.Cat.from_profile(all_profiles[n])
             icons.append((c.glyph(), c.body_attr) if c else None)
-        icons += [None] * (len(options) - len(names))
+        icons += [None] * len(actions)
         # No gutter at all on a device with no cats yet -- on first run
         # the only rows are "+ New player" and "Quit", and indenting them
         # past an empty column reads as a layout fault rather than as
         # space being held for something.
         gutter = (GLYPH_W + 2) if any(icons) else 0
 
-        rows = [" " * gutter + o for o in options]
+        # Players are indented past their own glyph. The actions sit at
+        # the section's left edge rather than lining up with the names --
+        # they aren't people, and separating them is what the rule is for.
+        rows = [" " * gutter + n for n in names] + actions
+        divider = (len(names) - 1) if names else None
 
         choice = ui.menu(
             stdscr,
@@ -254,6 +261,7 @@ def pick_profile(stdscr, all_profiles):
             framed=True,
             icon_gutter=gutter,
             frame_title="players",
+            divider_after=divider,
         )
         if choice == -1:
             return None

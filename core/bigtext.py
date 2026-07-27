@@ -25,7 +25,7 @@ ABOUT THE CHARACTERS
 # (top, bottom) -> the character that lights those halves.
 HALVES = {(0, 0): " ", (1, 0): "▀", (0, 1): "▄", (1, 1): "█"}
 
-WIDTH, HEIGHT = 5, 6
+HEIGHT = 6
 GAP = 1                 # blank columns between letters
 
 # 6 rows of 5, '#' on. Only the letters the game's titles need; anything
@@ -49,14 +49,37 @@ FONT = {
     " ": ["·····", "·····", "·····", "·····", "·····", "·····"],
 }
 
+# The same letters four columns wide instead of five. "PI TYPING TUTOR"
+# is 89 columns in the wide font and 74 in this one, which is the whole
+# reason it exists: on one line the title is three rows instead of six,
+# and those three rows are what let the player table below it breathe.
+NARROW = {
+    "A": ["·##·", "#··#", "#··#", "####", "#··#", "#··#"],
+    "C": ["·###", "#···", "#···", "#···", "#···", "·###"],
+    "E": ["####", "#···", "###·", "#···", "#···", "####"],
+    "G": ["·###", "#···", "#···", "#·##", "#··#", "·###"],
+    "H": ["#··#", "#··#", "####", "#··#", "#··#", "#··#"],
+    "I": ["####", "·##·", "·##·", "·##·", "·##·", "####"],
+    "M": ["#··#", "####", "####", "#··#", "#··#", "#··#"],
+    "N": ["#··#", "##·#", "####", "#·##", "#··#", "#··#"],
+    "O": ["·##·", "#··#", "#··#", "#··#", "#··#", "·##·"],
+    "P": ["###·", "#··#", "#··#", "###·", "#···", "#···"],
+    "R": ["###·", "#··#", "#··#", "###·", "#·#·", "#··#"],
+    "T": ["####", "·##·", "·##·", "·##·", "·##·", "·##·"],
+    "U": ["#··#", "#··#", "#··#", "#··#", "#··#", "·##·"],
+    "Y": ["#··#", "#··#", "·##·", "·##·", "·##·", "·##·"],
+    " ": ["····", "····", "····", "····", "····", "····"],
+}
+
 ASCII_FALLBACK = False   # flip if a console has no block elements
 
 
-def _bitmap(text):
+def _bitmap(text, font=None):
     """The whole string as one 6-row grid of on/off columns."""
+    font = font or FONT
     rows = [[] for _ in range(HEIGHT)]
     for i, ch in enumerate(text.upper()):
-        glyph = FONT.get(ch, FONT[" "])
+        glyph = font.get(ch, font[" "])
         for r in range(HEIGHT):
             if i:
                 rows[r].extend([0] * GAP)
@@ -64,9 +87,9 @@ def _bitmap(text):
     return rows
 
 
-def render(text):
+def render(text, font=None):
     """`text` as block-letter rows. Three rows tall, or six in ASCII mode."""
-    grid = _bitmap(text)
+    grid = _bitmap(text, font)
     if ASCII_FALLBACK:
         return ["".join("#" if c else " " for c in row).rstrip()
                 for row in grid]
@@ -77,18 +100,32 @@ def render(text):
     return out
 
 
-def width(text):
-    return max((len(r) for r in render(text)), default=0)
+def width(text, font=None):
+    return max((len(r) for r in render(text, font)), default=0)
 
 
-def block(lines, gap=0):
+def fit(text, room):
+    """
+    `text` in the widest font that fits `room` columns, else None.
+
+    One line of three rows beats two lines of six whenever it will go:
+    the rows saved go to whatever is under the title, which on the
+    profile picker is the thing people actually came to use.
+    """
+    for font in (FONT, NARROW):
+        if width(text, font) <= room:
+            return render(text, font)
+    return None
+
+
+def block(lines, gap=0, font=None):
     """
     Several strings rendered and stacked, centred on the widest.
 
     A title that wraps to two lines has to agree with itself about where
     the middle is, or the second line sits visibly off to one side.
     """
-    parts = [render(line) for line in lines]
+    parts = [render(line, font) for line in lines]
     full = max((max((len(r) for r in p), default=0) for p in parts), default=0)
     out = []
     for i, part in enumerate(parts):
