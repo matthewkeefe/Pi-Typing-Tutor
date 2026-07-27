@@ -189,7 +189,8 @@ def frame(win, top, left, height, width, title=None, attr=0):
 
 def menu(stdscr, title, options, subtitle=None, footer=None, art=None,
          draw_extra=None, option_icons=None, tick_ms=110,
-         panel=None, panel_title=None):
+         panel=None, panel_title=None, framed=False, icon_gutter=0,
+         frame_title=None):
     """
     Arrow-key menu. Returns the selected index, or -1 if the user
     backs out with q / ESC.
@@ -252,6 +253,22 @@ def menu(stdscr, title, options, subtitle=None, footer=None, art=None,
                     stdscr, top, menu_left, menu_h, menu_w, None,
                     cp(C_PENDING))
                 row0, col0, avail = m_top + 1, m_left + 1, m_h - 2
+            elif framed:
+                # A framed single column with no cat beside it: the
+                # profile picker, which is a table of people rather than
+                # a list of things to do. Centred as a block, but the
+                # rows inside it read down a straight left edge.
+                # +6, not +4: two columns for the "> " marker and four
+                # for the borders and their padding. At +4 the longest
+                # entry lost its last two characters -- "Delete a play".
+                inner = max(len(o) for o in options) + 6
+                box_w = min(w - 4, max(28, inner))
+                box_h = min(max(5, h - top - 2), len(options) + 4)
+                left = max(1, (w - box_w) // 2)
+                m_top, m_left, m_h, m_w = frame(stdscr, top, left, box_h,
+                                                box_w, frame_title,
+                                                cp(C_PENDING))
+                row0, col0, avail = m_top + 1, m_left + 1, m_h - 2
             else:
                 row0, col0, avail = top, None, len(options)
 
@@ -287,8 +304,16 @@ def menu(stdscr, title, options, subtitle=None, footer=None, art=None,
                 icon = option_icons[i] if option_icons and i < len(option_icons) else None
                 if icon:
                     text, icon_attr = icon
-                    safe_addstr(stdscr, row0 + row, max(0, x - len(text) - 1),
-                                text, icon_attr)
+                    if icon_gutter:
+                        # Inside the frame, in a fixed gutter the labels
+                        # are already padded past. Drawing it to the left
+                        # of the text -- which is what happens without a
+                        # gutter -- puts it through the frame's edge, and
+                        # ragged, since names are not all one length.
+                        ix = x + 2
+                    else:
+                        ix = max(0, x - len(text) - 1)
+                    safe_addstr(stdscr, row0 + row, ix, text, icon_attr)
 
             if col0 is not None and len(options) > avail:
                 # Say so, rather than letting the list look finished.

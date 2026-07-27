@@ -17,7 +17,7 @@ import random
 import sys
 from datetime import date
 
-from core import (profiles, badges, braille, ui, lessons, adaptive, cat,
+from core import (profiles, badges, bigtext, braille, ui, lessons, adaptive, cat,
                   engine, fx, shop, scrapbook, milestones, rituals,
                   contests, stasis, graduation)
 from core.ui import (cp, center, safe_addstr, C_TITLE, C_WARN, C_CORRECT,
@@ -51,14 +51,14 @@ BANNER = [
     "  |_| |_| |_|_|   |_____| (_) |_| |",
 ]
 
-TITLE_ART = [
-    "  ___________  ______  _   _  _____ ",
-    " |_   _| ___ \\ | ___ \\| | | ||  ___|",
-    "   | | | |_/ / | |_/ /| | | || |__  ",
-    "   | | |  __/  |  __/ | | | ||  __| ",
-    "   | | | |     | |    | |_| || |___ ",
-    "   \\_/ \\_|     \\_|     \\___/ \\____/ ",
-]
+# The title, in block letters. Two lines because "PI TYPING TUTOR" on one
+# is 90 columns and the screen is 80.
+GLYPH_W = 5          # every cat glyph is this wide; the gutter depends on it
+TITLE_ART = bigtext.block(["PI TYPING", "TUTOR"])
+
+# The tagline stays plain text. In block letters it comes to 137 columns,
+# and it is the subtitle -- it is supposed to be smaller than the title.
+TAGLINE = "a cat taught me to type"
 
 
 EGG = [
@@ -227,20 +227,33 @@ def pick_profile(stdscr, all_profiles):
 
         # Cats double as profile icons -- on a shared device the glyph is
         # how a kid spots their own row before they can read the names.
+        # Every glyph is the same width, so the names line up whether or
+        # not a row has a cat: the three actions at the bottom get the
+        # same gutter, empty, rather than sliding left to meet the frame.
         icons = []
         for n in names:
             c = cat.Cat.from_profile(all_profiles[n])
             icons.append((c.glyph(), c.body_attr) if c else None)
         icons += [None] * (len(options) - len(names))
+        # No gutter at all on a device with no cats yet -- on first run
+        # the only rows are "+ New player" and "Quit", and indenting them
+        # past an empty column reads as a layout fault rather than as
+        # space being held for something.
+        gutter = (GLYPH_W + 2) if any(icons) else 0
+
+        rows = [" " * gutter + o for o in options]
 
         choice = ui.menu(
             stdscr,
             "Who's typing?",
-            options,
-            subtitle="pick your name",
+            rows,
+            subtitle=TAGLINE,
             art=TITLE_ART,
             footer="up/down to move   ENTER to pick",
             option_icons=icons,
+            framed=True,
+            icon_gutter=gutter,
+            frame_title="players",
         )
         if choice == -1:
             return None

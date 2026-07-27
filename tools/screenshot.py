@@ -116,6 +116,26 @@ PROFILES = ("new", "veteran", "graduate")
 # point is to see what the real code draws, so call the real function.
 
 
+def _scene_picker(stdscr, profile):
+    """
+    The profile picker: block-letter title, framed table of players.
+
+    Built from several profiles rather than the one passed in, because
+    the whole point of this screen is the shared-device case -- four
+    kids, four cat glyphs, one straight left edge down the names.
+    """
+    import curses
+    import main
+    from core import cat, profiles as P
+    people = {}
+    for i, name in enumerate(("Anne", "Arthur", "Betsey", "Matt")):
+        p = P._blank_profile(name)
+        p["cat"] = cat.blank_cat_data(1000 + i * 37, "Cat%d" % i, "2026-01-01")
+        people[name] = p
+    curses.ungetch(27)
+    main.pick_profile(stdscr, people)
+
+
 def _scene_menu_cat(stdscr, profile):
     """The real main menu: framed cat portrait left, options right."""
     import curses
@@ -256,6 +276,8 @@ def _scene_cats(stdscr, profile):
 
 
 SCENES = {
+    "picker": ("the profile picker: title, framed player table",
+               _scene_picker),
     "menu-cat": ("the framed main menu: cat left, options right",
                  _scene_menu_cat),
     "care": ("the care board, framed", _scene_care),
