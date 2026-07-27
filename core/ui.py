@@ -231,6 +231,12 @@ def menu(stdscr, title, options, subtitle=None, footer=None, art=None,
                 top += 1
             top += 1
 
+            # Set before the branch, not inside it: the framed and plain
+            # paths each assigned these and the panel path did not, which
+            # left every screen with a cat beside it raising
+            # UnboundLocalError on the first frame.
+            rule, spacer = None, 0
+
             if panel:
                 p_w, p_h, p_draw = panel
                 box_w = p_w + 2
@@ -261,7 +267,6 @@ def menu(stdscr, title, options, subtitle=None, footer=None, art=None,
                 # +6, not +4: two columns for the "> " marker and four
                 # for the borders and their padding. At +4 the longest
                 # entry lost its last two characters -- "Delete a play".
-                spacer = 0
                 inner = max(len(o) for o in options) + 6
                 box_w = min(w - 4, max(28, inner))
                 # A divider costs three rows: a blank, the rule, a blank.
@@ -276,7 +281,6 @@ def menu(stdscr, title, options, subtitle=None, footer=None, art=None,
                 rule = (left, box_w)
             else:
                 row0, col0, avail = top, None, len(options)
-                rule, spacer = None, 0
 
             # The menu outgrew the screen once Phase 6 added modes: at
             # 80x24 the last four entries -- including Quit -- fell off

@@ -284,6 +284,73 @@ class TestTheTable(unittest.TestCase):
         self.draw([], with_cats=False)
 
 
+class TestEveryLayoutMode(unittest.TestCase):
+    """
+    ui.menu has three layouts and every one of them must actually run.
+
+    This exists because it shipped broken. A variable was initialised
+    inside two of the three branches, and the third -- the panel layout,
+    used by the main menu, the care board, the shop and the play picker
+    -- raised UnboundLocalError on its first frame. The whole suite was
+    green: 786 tests, and not one of them called `ui.menu` with a panel.
+
+    Same shape as the care-board painter crash that started
+    test_painters.py. A duck-typed branch nobody exercises is a branch
+    nobody knows is broken.
+    """
+
+    def setUp(self):
+        zero = mock.Mock(return_value=0)
+        self.patches = [mock.patch.multiple("core.ui", cp=zero, cat_color=zero),
+                        mock.patch("curses.curs_set", mock.Mock())]
+        for p in self.patches:
+            p.start()
+        self.addCleanup(self._stop)
+
+    def _stop(self):
+        for p in self.patches:
+            p.stop()
+
+    def layouts(self):
+        def paint(win, top, left):
+            win.addstr(top, left, "cat")
+        return {
+            "plain": {},
+            "panel": {"panel": (10, 4, paint), "panel_title": "Mochi"},
+            "framed": {"framed": True, "frame_title": "players"},
+            "framed + divider": {"framed": True, "divider_after": 1},
+            "framed + icons": {"framed": True, "icon_gutter": 7,
+                               "option_icons": [("(^.^)", 0), None, None]},
+        }
+
+    def test_every_layout_draws_without_raising(self):
+        for name, kw in self.layouts().items():
+            try:
+                ui.menu(FakeWin(), "Title", ["one", "two", "three"],
+                        subtitle="sub", footer="foot", **kw)
+            except Exception as exc:          # noqa: BLE001
+                self.fail("%s layout raised: %r" % (name, exc))
+
+    def test_every_layout_survives_the_smallest_screen(self):
+        for name, kw in self.layouts().items():
+            for size in ((24, 80), (20, 60)):
+                try:
+                    ui.menu(FakeWin(*size), "Title",
+                            ["one", "two", "three"], **kw)
+                except Exception as exc:      # noqa: BLE001
+                    self.fail("%s at %r raised: %r" % (name, size, exc))
+
+    def test_every_layout_survives_a_long_list(self):
+        opts = ["option %d" % i for i in range(30)]
+        for name, kw in self.layouts().items():
+            kw = dict(kw)
+            kw.pop("option_icons", None)
+            try:
+                ui.menu(FakeWin(), "Title", opts, **kw)
+            except Exception as exc:          # noqa: BLE001
+                self.fail("%s with 30 options raised: %r" % (name, exc))
+
+
 class TestFramedMenuSizing(unittest.TestCase):
     """
     `ui.menu(framed=True)` sizing, tested directly.
