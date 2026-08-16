@@ -44,24 +44,28 @@ BADGES = [
      "desc": "Finished a run at 100% accuracy",
      "check": lambda p: p["best_accuracy"] >= 100},
 
-    # --- Rocket mode ---
-    {"id": "rocket_3", "icon": "/^\\", "name": "Ship Builder",
-     "desc": "Built 3 rocket parts",
-     "check": lambda p: p["rocket_parts"] >= 3},
-    {"id": "rocket_full", "icon": "/^^\\", "name": "To The Stars",
-     "desc": "Completed the whole rocket",
-     "check": lambda p: p["rocket_parts"] >= 7},
+    # --- Tower mode ---
+    # The ids still say rocket/dino because Cat Tower and Moth Catch were
+    # reskins of those two modes, and an id is what a kid's earned badge
+    # is stored under. Renaming them would quietly un-earn every badge on
+    # every existing save; the names and icons are the part anyone sees.
+    {"id": "rocket_3", "icon": "_|_", "name": "Tier Builder",
+     "desc": "Built 3 tower tiers",
+     "check": lambda p: p["tower_tiers"] >= 3},
+    {"id": "rocket_full", "icon": "=^=", "name": "Tower Topper",
+     "desc": "Completed the whole tower",
+     "check": lambda p: p["tower_tiers"] >= 7},
 
-    # --- Dino mode ---
-    {"id": "dino_50", "icon": "<C~", "name": "Snack Time",
-     "desc": "Scored 50 in Dino Chomp",
-     "check": lambda p: p["dino_high_score"] >= 50},
-    {"id": "dino_150", "icon": "<CC~", "name": "Big Appetite",
-     "desc": "Scored 150 in Dino Chomp",
-     "check": lambda p: p["dino_high_score"] >= 150},
-    {"id": "dino_300", "icon": "<CCC~", "name": "Apex Predator",
-     "desc": "Scored 300 in Dino Chomp",
-     "check": lambda p: p["dino_high_score"] >= 300},
+    # --- Moth mode ---
+    {"id": "dino_50", "icon": "}o{", "name": "Quick Paws",
+     "desc": "Scored 50 in Moth Catch",
+     "check": lambda p: p["moth_high_score"] >= 50},
+    {"id": "dino_150", "icon": "}O{", "name": "Moth Hunter",
+     "desc": "Scored 150 in Moth Catch",
+     "check": lambda p: p["moth_high_score"] >= 150},
+    {"id": "dino_300", "icon": "}@{", "name": "Night Hunter",
+     "desc": "Scored 300 in Moth Catch",
+     "check": lambda p: p["moth_high_score"] >= 300},
 
     # --- Platformer mode ---
     {"id": "plat_10", "icon": "_o_", "name": "Sure Footed",

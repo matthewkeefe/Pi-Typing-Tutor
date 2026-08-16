@@ -2,8 +2,8 @@
 Pantry Defense -- issue #19.
 
 The acceptance criterion worth real coverage is the prefix input: "handles
-overlapping word starts sanely (nearest-mouse tiebreak like dino)". Words
-that share a start are the whole difficulty of turning Dino Chomp's
+overlapping word starts sanely (nearest-mouse tiebreak like moth)". Words
+that share a start are the whole difficulty of turning Moth Catch's
 single-letter matcher into a word matcher.
 """
 
@@ -83,7 +83,7 @@ class TestPrefixMatching(unittest.TestCase):
 
 
 class TestNearestTiebreak(unittest.TestCase):
-    """Closest to the bowl wins, the same rule Dino Chomp uses."""
+    """Closest to the bowl wins, the same rule Moth Catch uses."""
 
     def test_nearest_is_the_smallest_x(self):
         pool = mice(("cat", 60), ("cat", 12), ("cat", 40))

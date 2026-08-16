@@ -1,7 +1,7 @@
 """
 PANTRY DEFENSE -- word arcade.
 
-Dino Chomp's engine with words instead of single letters. Mice sneak in
+Moth Catch's engine with words instead of single letters. Mice sneak in
 from the right, each carrying a word; type a mouse's word and the cat
 swats it away. Let one reach the food bowl and it costs a life. Three
 lives, then the score screen.
@@ -124,7 +124,7 @@ def matches(mice, typed):
 
 
 def nearest(candidates):
-    """Closest to the bowl wins ties -- the same rule Dino Chomp uses."""
+    """Closest to the bowl wins ties -- the same rule Moth Catch uses."""
     return min(candidates, key=lambda m: m.x, default=None)
 
 
@@ -313,7 +313,7 @@ def play(stdscr, profile):
                 # Nothing on screen continues this prefix. The letter they
                 # should have hit belongs to the nearest mouse still
                 # matching what they'd typed before -- same reasoning as
-                # Dino Chomp's nearest-match attribution.
+                # Moth Catch's nearest-match attribution.
                 still = nearest(matches(mice, typed)) if typed else nearest(mice)
                 expected = None
                 if still is not None and len(typed) < len(still.word):

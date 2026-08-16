@@ -1,46 +1,58 @@
 """
-DINO CHOMP -- endless, score based.
+MOTH CATCH -- endless, score based.
 
-Letters drift in from the right. Type a letter and the dino chomps
-the closest matching one. Let a letter reach the dino's mouth and you
-lose a life. Three lives, then it's over. Everything speeds up as your
-score climbs, so the run ends when your reaction time runs out rather
-than at a fixed finish line.
+Moths flutter in from the right, each carrying a letter. Type a letter
+and the cat bats the nearest matching moth out of the air. Let one slip
+past the cat and it's out the window, which costs a life. Three lives,
+then it's over. Everything speeds up as your score climbs, so the run
+ends when your reaction time runs out rather than at a fixed finish line.
+
+This is the only mode in the game that drills single letters rather than
+words -- it's pure reaction on one key at a time, which is what makes it
+the right place to spend the adaptive engine's weak-key picks.
+
+Contrast Pantry Defense, which is this same arcade with *words* on the
+mice. Both are endless and score-only; the difference is the unit.
 """
 
 import curses
 import random
 import time
 
-from core import lessons, ui, engine, adaptive, fx, shop
+from core import cat, lessons, ui, engine, adaptive, fx, shop
 from core.ui import cp, safe_addstr, center, C_TITLE, C_WARN, C_CORRECT, C_WRONG, C_PENDING, C_ACCENT
 
-DINO_IDLE = [
-    "         _____ ",
-    "        / o   \\",
-    "       /      |",
-    "  ____/    ___|",
-    " /         |   ",
-    "/  ________|   ",
-    "\\_/  ||  ||    ",
+# Drawn only for a profile that hasn't hatched a cat yet -- same fallback
+# the platformer uses for its jumper.
+LEGACY_CAT = [
+    "   /\\_/\\    ",
+    "  ( o.o )   ",
+    "   > ^ <    ",
+    "  /     \\   ",
+    " (__)_(__)  ",
+]
+LEGACY_SWAT = [
+    "   /\\_/\\    ",
+    "  ( -.o )   ",
+    "   > ^ <~~o ",
+    "  /     \\   ",
+    " (__)_(__)  ",
 ]
 
-DINO_CHOMP = [
-    "         _____ ",
-    "        / o   \\",
-    "       /   \\  |",
-    "  ____/    /__|",
-    " /         |   ",
-    "/  ________|   ",
-    "\\_/  ||  ||    ",
-]
+FLOOR = "_"
 
-GROUND = "^"
-DINO_W = 15
-MOUTH_ROW_OFFSET = 3
+# How far to the right the cat can reach, in columns. Deliberately a
+# constant rather than the drawn sprite's width: a kid with a big adult
+# cat would otherwise get a wider catching zone than a kid with a kitten,
+# and the run speed is tuned against this number.
+REACH = 15
+
+# The wings flap between two glyph pairs on this cycle, in seconds.
+FLUTTER = 0.18
+WINGS = [("}", "{"), (")", "(")]
 
 
-class Letter:
+class Moth:
     __slots__ = ("ch", "x", "row")
 
     def __init__(self, ch, x, row):
@@ -70,22 +82,35 @@ def _next_letter(profile, level):
     return lessons.random_char(level)
 
 
+def _draw_cat(stdscr, kitty, swatting, top, left, attr):
+    """Paint the cat and return how many rows it took."""
+    if kitty is not None:
+        pose = "swat" if swatting else "sit"
+        kitty.draw(stdscr, top, left, pose)
+        return kitty.height(pose)
+    art = LEGACY_SWAT if swatting else LEGACY_CAT
+    for i, line in enumerate(art):
+        safe_addstr(stdscr, top + i, left, line, attr)
+    return len(art)
+
+
 def play(stdscr, profile):
-    level = profile.get("rocket_level", 1)  # reuse unlocked level as difficulty
+    level = profile.get("tower_level", 1)  # reuse unlocked level as difficulty
     h, w = stdscr.getmaxyx()
+
+    kitty = cat.Cat.from_profile(profile)   # None for a profile with no cat
 
     lane_top = 4
     lane_rows = max(3, min(7, h - 12))
-    dino_top = lane_top + 1
-    mouth_x = 2 + DINO_W
-    mouth_row = dino_top + MOUTH_ROW_OFFSET
+    cat_top = lane_top + 1
+    catch_x = 2 + REACH
 
-    letters = []
+    moths = []
     score = 0
     combo = 0
     best_combo = 0
     lives = 3
-    chomp_until = 0.0
+    swat_until = 0.0
     flash_until = 0.0
     saver_until = 0.0
     sess = engine.Session()
@@ -115,26 +140,26 @@ def play(stdscr, profile):
         if now >= next_spawn:
             ch = _next_letter(profile, level)
             row = lane_top + random.randrange(lane_rows)
-            letters.append(Letter(ch, w - 2, row))
+            moths.append(Moth(ch, w - 2, row))
             next_spawn = now + _spawn_gap(score)
 
         # --- move ---
         speed = _speed_for(score)
-        for L in letters:
-            L.x -= speed * dt
+        for m in moths:
+            m.x -= speed * dt
 
-        # --- collisions with the dino ---
+        # --- moths that got past the cat ---
         survivors = []
-        for L in letters:
-            if L.x <= mouth_x:
+        for m in moths:
+            if m.x <= catch_x:
                 lives -= 1
                 combo = 0
                 flash_until = now + 0.25
                 if lives <= 0:
                     running = False
             else:
-                survivors.append(L)
-        letters = survivors
+                survivors.append(m)
+        moths = survivors
 
         # --- input ---
         while True:
@@ -148,13 +173,13 @@ def play(stdscr, profile):
                 continue
 
             typed_ch = chr(key)
-            # chomp the closest matching letter
+            # bat the closest matching moth
             match = None
-            for L in letters:
-                if L.ch == typed_ch and (match is None or L.x < match.x):
-                    match = L
+            for m in moths:
+                if m.ch == typed_ch and (match is None or m.x < match.x):
+                    match = m
             if match is not None:
-                letters.remove(match)
+                moths.remove(match)
                 sess.keystroke(True, ch=match.ch)
                 sess.word_done()
                 combo += 1
@@ -163,15 +188,15 @@ def play(stdscr, profile):
                 if now < bonus_until:
                     gained *= shop.BONUS_MULTIPLIER
                 score += gained
-                chomp_until = now + 0.12
+                swat_until = now + 0.12
                 fx.spawn("spark", match.row, int(match.x))
                 if combo and combo % 10 == 0:
                     fx.spawn("confetti", match.row, int(match.x), n=10)
             else:
                 # Nothing on screen matched. The letter they *should* have
-                # hit is the one closest to the dino, so the miss counts
+                # hit is the one closest to the cat, so the miss counts
                 # against that key -- there's no other expected char here.
-                missed = min(letters, key=lambda L: L.x, default=None)
+                missed = min(moths, key=lambda m: m.x, default=None)
                 sess.keystroke(False, ch=missed.ch if missed else None)
                 if combo and combo_saver:
                     combo_saver = False   # the catnip cookie, spent
@@ -182,7 +207,7 @@ def play(stdscr, profile):
 
         # --- draw ---
         stdscr.erase()
-        center(stdscr, 0, "D I N O   C H O M P", cp(C_TITLE, True))
+        center(stdscr, 0, "M O T H   C A T C H", cp(C_TITLE, True))
         safe_addstr(stdscr, 1, 2, "Score %-6d" % score, cp(C_WARN, True))
         safe_addstr(stdscr, 1, 18, "Combo x%-4d" % combo, cp(C_ACCENT, True))
         safe_addstr(stdscr, 1, 32, "Lives " + "<3 " * max(0, lives), cp(C_WRONG, True))
@@ -193,20 +218,22 @@ def play(stdscr, profile):
         elif now < saver_until:
             center(stdscr, 2, "combo saved!", cp(C_ACCENT, True))
 
-        art = DINO_CHOMP if now < chomp_until else DINO_IDLE
-        dino_attr = cp(C_WRONG, True) if now < flash_until else cp(C_CORRECT, True)
-        for i, line in enumerate(art):
-            safe_addstr(stdscr, dino_top + i, 2, line, dino_attr)
+        cat_attr = cp(C_WRONG, True) if now < flash_until else cp(C_CORRECT, True)
+        cat_rows = _draw_cat(stdscr, kitty, now < swat_until, cat_top, 2, cat_attr)
 
-        for L in letters:
-            x = int(L.x)
-            danger = x < mouth_x + 12
+        left, right = WINGS[int(now / FLUTTER) % len(WINGS)]
+        for m in moths:
+            x = int(m.x)
+            danger = x < catch_x + 12
             attr = cp(C_WRONG, True) if danger else cp(C_WARN, True)
-            safe_addstr(stdscr, L.row, x, L.ch.upper(), attr)
+            if x >= 1:
+                safe_addstr(stdscr, m.row, x - 1, left, cp(C_PENDING))
+            safe_addstr(stdscr, m.row, x, m.ch.upper(), attr)
+            safe_addstr(stdscr, m.row, x + 1, right, cp(C_PENDING))
 
-        ground_row = dino_top + len(art)
-        safe_addstr(stdscr, ground_row, 0, GROUND * max(0, w - 1), cp(C_PENDING))
-        center(stdscr, h - 1, "type the letters before they reach the dino   -   ESC to quit",
+        floor_row = cat_top + cat_rows
+        safe_addstr(stdscr, floor_row, 0, FLOOR * max(0, w - 1), cp(C_PENDING))
+        center(stdscr, h - 1, "type the letters before the moths slip past   -   ESC to quit",
                cp(C_PENDING))
         fx.tick(dt)
         fx.draw(stdscr)   # after the scene, so sparks land on top of it
@@ -217,8 +244,8 @@ def play(stdscr, profile):
     stdscr.nodelay(False)
     sess.finish()
 
-    if score > profile.get("dino_high_score", 0):
-        profile["dino_high_score"] = score
+    if score > profile.get("moth_high_score", 0):
+        profile["moth_high_score"] = score
         headline = "NEW HIGH SCORE!"
     else:
         headline = "GAME OVER"
@@ -230,10 +257,10 @@ def play(stdscr, profile):
             "Best combo: x%d" % best_combo,
             "Accuracy: %.1f%%" % sess.accuracy,
             "",
-            "High score: %d" % profile["dino_high_score"],
+            "High score: %d" % profile["moth_high_score"],
         ],
         title=headline,
-        art=DINO_CHOMP,
+        art=kitty.art("swat") if kitty is not None else LEGACY_SWAT,
     )
 
     return sess.summary()

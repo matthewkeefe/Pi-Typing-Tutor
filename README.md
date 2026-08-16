@@ -108,16 +108,17 @@ Details are in the kernel-symbol table further down. Worth doing only if Path A'
 
 ## The modes
 
-**Rocket Builder** — level based. Seven lesson levels, seven rocket parts. Clear a
-level's word drill at 85%+ accuracy and the next part gets welded onto the ship:
-engine bell, fuel tanks, nose cone, fins, viewport, then fuel and ignition. Finish
-all seven and it launches off the top of the screen, then resets so they can build
-a faster one. Mistakes must be backspaced before you can continue.
+**Cat Tower** — level based. Seven lesson levels, seven tiers of a cat tree. Clear a
+level's word drill at 85%+ accuracy and the next tier gets bolted on: base board,
+lower post, upper post, top perch, sisal wrap, hammock and cubby, then the catnip
+and the dangly toy. Finish all seven and the cat climbs it, then it resets so they
+can build a taller one. Mistakes must be backspaced before you can continue.
 
-**Dino Chomp** — endless, score based. Letters drift in from the right; type one and
-the dino chomps the nearest match. Three lives, everything speeds up as the score
-climbs, combos multiply points. This is the mode that builds raw reaction speed on
-individual keys.
+**Moth Catch** — endless, score based. Moths flutter in from the right, each carrying
+a letter; type one and the cat bats the nearest match out of the air. Let a moth slip
+past and it's out the window, which costs a life. Three lives, everything speeds up as
+the score climbs, combos multiply points. This is the mode that builds raw reaction
+speed on individual keys — the only one that drills single letters rather than words.
 
 **Platform Jumper** — accuracy focused. Each platform has a word. Type it perfectly
 and your character leaps to the next one. **There is no backspace here on purpose** —
@@ -439,8 +440,8 @@ core/rituals.py       weekend crate, seasons, show-up gift escalation
 core/contests.py      the cup ladder: bars, ranks, entry throttle
 core/graduation.py    the win condition: every letter, at speed, every time
 core/stasis.py        shelved cats: locked, unchanging, waiting
-modes/rocket.py       level-based ship builder
-modes/dino.py         endless letter chomper
+modes/tower.py        level-based cat-tree builder
+modes/moth.py         endless letter catcher
 modes/platformer.py   accuracy-focused jumper (the cat is the jumper)
 modes/yarn.py         accuracy drill with no lives and nothing to lose
 modes/pantry.py       word arcade: shoo mice off the food bowl
@@ -545,7 +546,7 @@ green when they're fast, cyan when they're steady (you can hit it on purpose —
 this is what earned you the next letter), yellow while still learning, and blue
 for not yet reached. The cyan rung matters: mastery means 40 wpm, so without a
 middle state a kid would sit on one colour for the better part of two years
-while genuinely improving every week. Dino Chomp uses the same data to spawn the
+while genuinely improving every week. Moth Catch uses the same data to spawn the
 letters a kid is worst at.
 
 These numbers were set with `tools/simulate.py`, not by guessing. The simulated
@@ -707,8 +708,8 @@ nothing here ever goes away for good.
 - **Toys and decorations** are permanent. Decor shows up beside the cat on
   the menu, so a shelf of stuff is the visible record of months of care.
 - **Treats** are consumables the kid chooses to use before a game: forgive
-  your first slip in Platform Jumper, get one dropped combo back in Dino
-  Chomp, or 30 seconds of double score. No treat ever types anything for
+  your first slip in Platform Jumper, get one dropped combo back in Moth
+  Catch, or 30 seconds of double score. No treat ever types anything for
   anybody or skips practice — they're buffers and bonuses only.
 - **Litter tiers** are streak insurance, bought *before* you need it. Clumping
   covers one missed day, self-raking deluxe covers two.
@@ -768,8 +769,8 @@ no guilt messaging anywhere in this game, by design.
   tasks are the toll before free play opens, and they add up to roughly 80
   characters, about 90 seconds of typing for a hunt-and-peck five-year-old.
   They were once 250, which was far too long to ask every day.
-- **Rocket pass threshold** — `modes/rocket.py`, the `85.0` in `play()`.
-- **Dino difficulty ramp** — `modes/dino.py`, `_speed_for()` and `_spawn_gap()`.
+- **Tower pass threshold** — `modes/tower.py`, the `85.0` in `play()`.
+- **Moth difficulty ramp** — `modes/moth.py`, `_speed_for()` and `_spawn_gap()`.
 - **Platformer harshness** — `modes/platformer.py`, `RUN_LENGTH` and `LIVES`.
 - **Yarn Chase length** — `modes/yarn.py`, `FLICKS`.
 - **Pantry difficulty ramp** — `modes/pantry.py`, `speed_for()`, `spawn_gap()`,

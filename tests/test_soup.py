@@ -341,9 +341,9 @@ class TestRegistration(unittest.TestCase):
 
     def test_modes_without_the_hook_are_always_available(self):
         import main
-        from modes import dino
-        self.assertIsNone(getattr(dino, "available", None))
-        self.assertIn("Dino Chomp",
+        from modes import moth
+        self.assertIsNone(getattr(moth, "available", None))
+        self.assertIn("Moth Catch",
                       [lbl for _, _, lbl, _ in main.arcade_for(a_profile())])
 
     def test_profile_defaults_migrate_on_old_saves(self):
