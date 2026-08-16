@@ -59,7 +59,7 @@ class FakeWin:
 
 
 def profile_with_cat(seed=4242, growth=0):
-    return {"name": "Test", "rocket_level": 1,
+    return {"name": "Test", "tower_level": 1,
             "cat": {"seed": seed, "name": "Mittens", "growth": growth}}
 
 

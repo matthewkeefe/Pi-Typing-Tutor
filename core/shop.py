@@ -41,7 +41,7 @@ LITTER_COVERAGE = {"basic": 0, "clumping": 1, "deluxe": 2}
 # What a treat does when the kid chooses to use it. Every one of these is
 # a buffer or a bonus; none of them types anything for anybody.
 EFFECT_SHIELD = "shield"          # first mistake in a platformer run forgiven
-EFFECT_COMBO_SAVER = "combo_saver"  # first dropped dino combo restored
+EFFECT_COMBO_SAVER = "combo_saver"  # first dropped moth combo restored
 EFFECT_BONUS = "bonus"            # 30 seconds of double score
 
 EFFECT_NAMES = {
@@ -51,8 +51,8 @@ EFFECT_NAMES = {
 }
 EFFECT_BLURBS = {
     EFFECT_SHIELD: "your first slip in Platform Jumper is forgiven",
-    EFFECT_COMBO_SAVER: "your first dropped combo in Dino Chomp comes back",
-    EFFECT_BONUS: "30 seconds of double score in Dino Chomp",
+    EFFECT_COMBO_SAVER: "your first dropped combo in Moth Catch comes back",
+    EFFECT_BONUS: "30 seconds of double score in Moth Catch",
 }
 
 BONUS_SECONDS = 30.0

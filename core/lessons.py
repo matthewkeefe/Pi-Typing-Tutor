@@ -57,12 +57,12 @@ LEVELS = [
         "words": [
             "the quick fox runs fast",
             "she sells sea shells",
-            "we can build a rocket",
+            "we can build a cat tower",
             "the dragon flew away",
             "practice makes perfect",
             "keep your eyes on the screen",
             "type with all ten fingers",
-            "the dino loves to chomp letters",
+            "the cat loves to catch moths",
         ],
     },
 ]

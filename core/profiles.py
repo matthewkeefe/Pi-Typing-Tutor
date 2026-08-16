@@ -31,9 +31,9 @@ def _blank_profile(name):
         "total_seconds": 0,
         "best_wpm": 0.0,
         "best_accuracy": 0.0,
-        "rocket_level": 1,
-        "rocket_parts": 0,
-        "dino_high_score": 0,
+        "tower_level": 1,
+        "tower_tiers": 0,
+        "moth_high_score": 0,
         "platformer_best_streak": 0,
         "platformer_perfect_runs": 0,
         "yarn_best_streak": 0,
@@ -101,10 +101,34 @@ def save_all(profiles):
     _atomic_write(SAVE_PATH, profiles)
 
 
+# Two modes were reskinned when the arcade went all-cat: Rocket Builder
+# became Cat Tower and Dino Chomp became Moth Catch. The keys moved with
+# them, and a half-built rocket is worth exactly as many tiers as it was
+# worth parts, so the old values are carried across rather than dropped.
+RENAMED_KEYS = {
+    "rocket_level": "tower_level",
+    "rocket_parts": "tower_tiers",
+    "dino_high_score": "moth_high_score",
+}
+
+
+def _migrate(profile):
+    """Rename keys from older saves in place. Never loses a value."""
+    for old, new in RENAMED_KEYS.items():
+        if old not in profile:
+            continue
+        # setdefault, not assignment: a save that already has the new key
+        # was written by a newer build, and that value is the good one.
+        profile.setdefault(new, profile[old])
+        del profile[old]
+    return profile
+
+
 def get_or_create(profiles, name):
     if name not in profiles:
         profiles[name] = _blank_profile(name)
     else:
+        _migrate(profiles[name])
         # Forward-compat: fill in any keys added by a later version
         for k, v in _blank_profile(name).items():
             profiles[name].setdefault(k, v)

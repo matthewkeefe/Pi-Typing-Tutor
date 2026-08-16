@@ -172,7 +172,7 @@ def _animate_fall(stdscr, pos, draw):
 
 
 def play(stdscr, profile):
-    level = profile.get("rocket_level", 1)
+    level = profile.get("tower_level", 1)
     seed = random.randrange(10000)
     words = [lessons.random_word(level) for _ in range(RUN_LENGTH + 1)]
     kitty = cat.Cat.from_profile(profile)   # None for a profile with no cat

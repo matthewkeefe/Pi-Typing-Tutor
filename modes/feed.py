@@ -6,7 +6,7 @@ come from `adaptive.generate_lesson`, so every one of them is built from
 the letters this kid has unlocked and carries the letter they're worst at.
 Type a word, a fish arcs across the screen into the bowl.
 
-Mistakes have to be backspaced (the rocket-mode convention) because the
+Mistakes have to be backspaced (the tower-mode convention) because the
 point of this drill is clean keystrokes on hard keys, not speed.
 """
 

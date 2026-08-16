@@ -23,15 +23,15 @@ from core import (profiles, badges, bigtext, braille, ui, lessons, adaptive, cat
                   contests, stasis, graduation)
 from core.ui import (cp, center, safe_addstr, C_TITLE, C_WARN, C_CORRECT,
                      C_PENDING, C_ACCENT, C_BADGE, C_DEFAULT)
-from modes import (rocket, dino, platformer, memorize, care, yarn, soup,
+from modes import (tower, moth, platformer, memorize, care, yarn, soup,
                    pantry, mystery, quiz, race, contest, dash)
 
 # The free-play arcade: (module, history name, label, blurb).
 # play_slot builds the care board's Play choices from this same list, so a
 # mode added here shows up in both places.
 ARCADE = [
-    (rocket, "rocket", "Rocket Builder", "levels, build a ship"),
-    (dino, "dino", "Dino Chomp", "endless, high score"),
+    (tower, "tower", "Cat Tower", "levels, build a cat tree"),
+    (moth, "moth", "Moth Catch", "endless, high score"),
     (platformer, "platform", "Platform Jumper", "accuracy, don't fall"),
     (yarn, "yarn", "Yarn Chase", "accuracy, nothing to lose"),
     (pantry, "pantry", "Pantry Defense", "endless, defend the bowl"),
@@ -446,8 +446,8 @@ def show_stats(stdscr, profile):
         rows.append(("", ""))
 
     rows += [
-        ("Rocket", "level %d, %d/7 parts" % (profile["rocket_level"], profile["rocket_parts"])),
-        ("Dino high score", "%d" % profile["dino_high_score"]),
+        ("Tower", "level %d, %d/7 tiers" % (profile["tower_level"], profile["tower_tiers"])),
+        ("Moth high score", "%d" % profile["moth_high_score"]),
         ("Platform streak", "%d (perfect runs: %d)" % (profile["platformer_best_streak"],
                                                        profile["platformer_perfect_runs"])),
         ("Yarn streak", "%d (perfect rounds: %d)" % (profile["yarn_best_streak"],
@@ -1653,13 +1653,13 @@ def main_menu(stdscr, all_profiles, profile):
         gated = kitty is not None and not cat.care_done_today(profile)
         entries = build_menu(profile, gated)
 
-        lvl = lessons.get_level(profile["rocket_level"])
+        lvl = lessons.get_level(profile["tower_level"])
         sub = "streak %d days  |  %d fish  |  %d badges" % (
             profile["current_streak"], profile.get("fish", 0), len(profile["badges"])
         )
         choice = ui.menu(
             stdscr,
-            "%s  --  Level %d: %s" % (profile["name"], profile["rocket_level"], lvl["name"]),
+            "%s  --  Level %d: %s" % (profile["name"], profile["tower_level"], lvl["name"]),
             [label for label, _ in entries],
             subtitle=sub,
             panel=panel,

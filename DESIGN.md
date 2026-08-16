@@ -203,8 +203,8 @@ Per key we keep an exponential moving average (recent-weighted, O(1) space):
   k v w f z x q j`.
 - The existing 7 `LEVELS` stay as the *content* backdrop for sentences and
   the Memorize mode; the adaptive alphabet becomes the source of drill and
-  arcade content. `rocket_level` maps onto alphabet milestones so the
-  rocket's 7 parts still pace the journey.
+  arcade content. `tower_level` maps onto alphabet milestones so the
+  tower's 7 tiers still pace the journey.
 
 ### 4.3 Word generation
 
@@ -219,7 +219,7 @@ Pronounceable pseudo-words plus real words:
 ### 4.4 Where it shows up
 
 - **The daily feed drill** (§5) is pure adaptive content.
-- **Dino Chomp** spawns letters weighted toward weak keys instead of uniform
+- **Moth Catch** spawns letters weighted toward weak keys instead of uniform
   `random_char`.
 - **Platform Jumper** can draw platform words from the generator.
 - **Stats** gains a keyboard heatmap: the QWERTY layout drawn in color —
@@ -310,7 +310,7 @@ shop never becomes a skill leaderboard in disguise.
 | Item class | Examples | Effect |
 |---|---|---|
 | **Toys** | yarn ball, feather wand, cardboard box | Unlock mini-game variants and new idle animations; permanent |
-| **Treats** | salmon bite, catnip cookie, birthday feast | Consumable power-ups the kid chooses to activate: a mistake shield in the no-backspace platformer, a combo saver in Dino Chomp, a score bonus round. Quality tiers (small/fancy/feast) with prices to match, and each cat's personality-driven *favorite* earns a bonus reaction — shopping becomes a decision, not a formality [R2] |
+| **Treats** | salmon bite, catnip cookie, birthday feast | Consumable power-ups the kid chooses to activate: a mistake shield in the no-backspace platformer, a combo saver in Moth Catch, a score bonus round. Quality tiers (small/fancy/feast) with prices to match, and each cat's personality-driven *favorite* earns a bonus reaction — shopping becomes a decision, not a formality [R2] |
 | **Accessories** [R2] | collar, bandana, tiny hat | Worn on the cat everywhere it renders (2–3 ASCII accessory slots) — the lasting, visible record of effort that consumables can't be (Tamagotchi Uni's slot system) |
 | **Litter tiers** | basic → clumping → self-raking deluxe | Streak insurance: covers 1–2 missed care days (Duolingo streak-freeze pattern). Bought *ahead of time* — protection, not pardon |
 | **Decor** | rug, window perch, plant to knock over | Pure cosmetics for the cat's corner of the menu; the visible record of months of care |
@@ -357,8 +357,8 @@ Existing modes keep working untouched (the cat is additive):
 
 | Mode | Cat integration (cheap) | Later |
 |---|---|---|
-| Rocket Builder | Cat in a helmet rides the finished rocket | Cat plants a flag per level |
-| Dino Chomp | Weak-key-weighted spawns (§4.4) | — |
+| Cat Tower | Cat climbs the finished tower | Cat claims a new tier per level |
+| Moth Catch | Weak-key-weighted spawns (§4.4) | — |
 | Platform Jumper | The jumper *is* the kid's cat (render from genes) | — |
 | Memorize | unchanged | Cat "listens" while you recite |
 
@@ -371,7 +371,7 @@ New cat-native modes, in priority order:
    yarn ball; the cat pounces on success. (Platformer's engine, reskinned.)
 3. **Pantry Defense** — Typer Shark's approach-tension: ASCII mice sneak
    toward the food bowl, each labeled with a word; type it to shoo them.
-   (Dino Chomp's engine with words instead of letters.)
+   (Moth Catch's engine with words instead of letters.)
 4. **Mystery Word** [R2] — hangman-style word *production* (Cryptmaster's
    verified-fun core): the cat paws at a covered dish; the kid guesses
    letters, then types the full word to reveal the treat inside. The first
@@ -432,7 +432,7 @@ core/
   shop.py             NEW — item catalog, weekly rotation, fish economy, inventory
   fx.py               NEW — ASCII particle system
 modes/
-  rocket|dino|platformer|memorize.py   touched only for §6 integrations
+  tower|moth|platformer|memorize.py     touched only for §6 integrations
   care.py             NEW — care board + the Water/Pets/Clean micro-activities
   feed.py             NEW — Food task: daily adaptive drill (fishing skin)
   yarn.py, pantry.py, mystery.py, soup.py, quiz.py   NEW — phase 6
@@ -504,7 +504,7 @@ Size check: `keys` is ≤30 entries of 4 numbers; `ghosts` capped like
 Each phase is independently shippable; kids playtest after every one.
 
 1. **Adaptive engine** — `core/adaptive.py`, Session per-key capture, the
-   stats-screen keyboard heatmap. No visible cat yet, but Dino spawns get
+   stats-screen keyboard heatmap. No visible cat yet, but Moth Catch spawns get
    weak-key weighting. *Proves the data pipeline.*
 2. **The cat exists** — `core/cat.py`, hatch ceremony on profile creation,
    cat + mood on the main menu, cat glyphs in the profile picker.
