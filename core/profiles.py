@@ -69,7 +69,7 @@ def _atomic_write(path, payload):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path))
     try:
-        with os.fdopen(fd, "w") as f:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)
             f.flush()
             os.fsync(f.fileno())
@@ -84,10 +84,12 @@ def load_all():
     if not os.path.exists(SAVE_PATH):
         return {}
     try:
-        with open(SAVE_PATH) as f:
+        with open(SAVE_PATH, encoding="utf-8") as f:
             return json.load(f)
-    except (json.JSONDecodeError, OSError):
-        # Corrupt save (yanked SD card mid-write) -- keep a copy, start fresh
+    except (json.JSONDecodeError, UnicodeDecodeError, OSError):
+        # Corrupt save (yanked SD card mid-write) -- keep a copy, start fresh.
+        # UnicodeDecodeError belongs here too: the file is meant to be
+        # hand-fixable, and a hand-fix can leave bytes that aren't UTF-8.
         try:
             os.replace(SAVE_PATH, SAVE_PATH + ".corrupt")
         except OSError:

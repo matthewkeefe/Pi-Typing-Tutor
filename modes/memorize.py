@@ -47,11 +47,15 @@ def load_passages():
     if not os.path.exists(path):
         return BUILTIN[:]
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             raw = [ln.strip() for ln in f]
         found = [ln for ln in raw if ln and not ln.startswith("#")]
         return found or BUILTIN[:]
-    except OSError:
+    except (UnicodeDecodeError, OSError):
+        # A parent edits this file by hand. Encoding is pinned rather than
+        # taken from the locale, because the Pi runs in the C locale where
+        # that means ASCII -- and a smart quote pasted in from a Mac would
+        # otherwise take down the whole mode.
         return BUILTIN[:]
 
 
